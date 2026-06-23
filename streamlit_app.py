@@ -1,5 +1,5 @@
 import streamlit as st
-import fitz  # PyMuPDF
+from app.pdf_reader.pdf_extractor import extract_text_from_pdf
 
 st.set_page_config(
     page_title="AI Research Assistant",
@@ -14,19 +14,6 @@ uploaded_file = st.file_uploader(
     "Upload a Research Paper (PDF)",
     type=["pdf"]
 )
-
-def extract_text_from_pdf(pdf_file):
-    text = ""
-
-    pdf_document = fitz.open(
-        stream=pdf_file.read(),
-        filetype="pdf"
-    )
-
-    for page in pdf_document:
-        text += page.get_text()
-
-    return text
 
 if uploaded_file:
 
