@@ -1,0 +1,2 @@
+An AI agent that helps researchers:
+Search and organize literature Read and summarize research papers Extract citations Identify research gaps Generate literature reviews Suggest research directions Draft research proposals Assist in paper writing
