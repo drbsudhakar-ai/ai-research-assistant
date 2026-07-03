@@ -2,7 +2,7 @@
 ===========================================================
 Project      : AI Research Assistant
 File         : analysis.py
-Version      : 0.3.0
+Version      : 0.4.0
 Author       : Dr. B. Sudhakar
 
 Description:
@@ -15,8 +15,10 @@ It does NOT communicate with the LLM.
 """
 
 import streamlit as st
-from app.config.llm_config import LLMConfig
-
+from app.config.llm_config import (
+    MODEL_NAME,
+    PROVIDER_NAME,
+)
 
 
 def render_analysis(
@@ -33,17 +35,16 @@ def render_analysis(
     execution_time : float
         Time taken by the LLM to generate the analysis.
     """
-    config = LLMConfig()
-
+  
     st.success("✅ Analysis completed successfully.")
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("🤖 Model", config.MODEL_NAME)
+        st.metric("🤖 Model", MODEL_NAME)
 
     with col2:
-        st.metric("🦙 Provider", config.PROVIDER)
+        st.metric("🦙 Provider", PROVIDER_NAME)
 
     with col3:
         st.metric(
@@ -72,3 +73,17 @@ def render_analysis(
         mime="text/markdown",
         use_container_width=True,
     )
+
+
+    st.divider()
+
+    if st.button(
+        "🗑 Clear Current Report",
+        use_container_width=True,
+    ):
+
+        st.session_state.pop("latest_result", None)
+        st.session_state.pop("latest_execution_time", None)
+        st.session_state.pop("latest_title", None)
+
+        st.rerun()

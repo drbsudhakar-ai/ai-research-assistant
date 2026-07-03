@@ -4,14 +4,30 @@ sidebar.py
 Sidebar UI for AI Research Assistant
 
 Author : Dr. B. Sudhakar
-Version : 0.3.0
+Version : 0.4.0
 """
 
 import streamlit as st
 
 
+# ==========================================================
+# NAVIGATION
+# ==========================================================
+
+
+
 def render_sidebar():
 
+    page = st.sidebar.radio(
+        "Navigation",
+        [
+            "🏠 Home",
+            "📜 Analysis History",
+        ]
+    )
+
+    st.sidebar.divider()
+    
     with st.sidebar:
 
         st.markdown("## 🧠 AI Research Assistant")
@@ -39,7 +55,7 @@ def render_sidebar():
         st.divider()
         st.markdown("### 📌 Project Information")
 
-        st.write("**Version** : 0.3.0")
+        st.write("**Version** : 0.4.0")
         st.write("**Provider** : Ollama")
         st.write("**Model** : qwen3:4b")
         st.write("**Status** : 🟢 Ready")
@@ -53,3 +69,5 @@ def render_sidebar():
         st.caption(
             "Building open-source AI tools for Education and Research."
         )
+    return page
+

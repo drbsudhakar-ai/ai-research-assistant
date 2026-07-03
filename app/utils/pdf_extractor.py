@@ -3,69 +3,131 @@
 Project      : AI Research Assistant
 Module       : PDF Utilities
 File         : pdf_extractor.py
-Version      : 1.0.0
+Version      : 1.1.0
 Author       : Dr. B. Sudhakar
 
 Description:
-    Utility module for extracting text from research paper PDFs.
+    Utility module for extracting text and metadata from PDF documents.
 
 Responsibilities:
-    • Read PDF files
-    • Extract text page by page
-    • Return extracted text
-    • Return PDF statistics
+    - Validate PDF documents.
+    - Extract text page by page.
+    - Return extraction statistics.
 
-Future Enhancements:
-    • OCR support for scanned PDFs
-    • Table extraction
-    • Figure extraction
-    • Citation extraction
+Notes:
+    - This module contains no Streamlit code.
+    - This module contains no AI logic.
 ===============================================================================
 """
 
-import fitz  # PyMuPDF
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import BinaryIO
+from app.utils.title_extractor import TitleExtractor
+import fitz
+
+
+__all__ = [
+    "PDFExtractionResult",
+    "PDFExtractor",
+]
+
+
+# =============================================================================
+# Data Models
+# =============================================================================
+
+
+@dataclass(slots=True, frozen=True)
+class PDFExtractionResult:
+    title: str
+    title_source: str
+    title_confidence: float
+    text: str
+    total_pages: int
+    total_characters: int
+
+
+# =============================================================================
+# PDF Extractor
+# =============================================================================
 
 
 class PDFExtractor:
     """
-    Utility class for extracting text from PDF documents.
+    Utility class for extracting information from PDF documents.
     """
 
+
+    # -------------------------------------------------------------------------
+    # Public API
+    # -------------------------------------------------------------------------
+
     @staticmethod
-    def extract_text(uploaded_file):
+    def extract_text(
+        file: BinaryIO,
+    ) -> PDFExtractionResult:
         """
-        Extract text from an uploaded PDF.
+        Extract text and metadata from a PDF.
 
         Parameters
         ----------
-        uploaded_file : UploadedFile
-            Streamlit uploaded PDF object.
+        file : BinaryIO
+            PDF file.
 
         Returns
         -------
-        tuple
-            (
-                extracted_text,
-                total_pages,
-                total_characters
-            )
+        PDFExtractionResult
+
+        Raises
+        ------
+        ValueError
+            If the PDF is invalid or contains no extractable text.
         """
 
-        pdf = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+        try:
+            
+            file.seek(0)
 
-        extracted_text = ""
+            pdf_bytes = file.read()
 
-        for page in pdf:
-            extracted_text += page.get_text()
+            with fitz.open(
+                stream=pdf_bytes,
+                filetype="pdf",
+            ) as document:
 
-        total_pages = len(pdf)
+                extracted_pages = [
+                    page.get_text("text").strip()
+                    for page in document
+                ]
 
-        total_characters = len(extracted_text)
+                extracted_text = "\n".join(
+                    page
+                    for page in extracted_pages
+                    if page
+                ).strip()
 
-        pdf.close()
+                if not extracted_text:
+                    raise ValueError(
+                        "The PDF contains no extractable text."
+                    )
 
-        return (
-            extracted_text,
-            total_pages,
-            total_characters
-        )
+                title_result = TitleExtractor.extract(document)
+                title = title_result.title
+                source = title_result.source
+                confidence = title_result.confidence
+
+                return PDFExtractionResult(
+                    title=title,
+                    title_source=source,
+                    title_confidence=confidence,
+                    text=extracted_text,
+                    total_pages=len(document),
+                    total_characters=len(extracted_text),
+                )
+
+        except (fitz.FileDataError, RuntimeError) as exc:
+            raise ValueError(
+                "Invalid or corrupted PDF document."
+            ) from exc

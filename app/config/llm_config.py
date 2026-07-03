@@ -3,7 +3,7 @@
 Project      : AI Research Assistant
 Module       : LLM Configuration
 File         : llm_config.py
-Version      : 1.0.0
+Version      : 0.4.0
 Author       : Dr. B. Sudhakar
 
 Description:
@@ -26,9 +26,9 @@ Last Updated:
 # Default Provider Configuration
 # -----------------------------------------------------------------------------
 
-DEFAULT_PROVIDER = "ollama"
+PROVIDER_NAME = "ollama"
 
-DEFAULT_MODEL = "qwen3:4b"
+MODEL_NAME = "qwen3:4b"
 
 # -----------------------------------------------------------------------------
 # Model Recommendations

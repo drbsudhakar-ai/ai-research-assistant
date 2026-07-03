@@ -31,6 +31,8 @@ Last Updated:
 ===============================================================================
 """
 
+
+
 # -----------------------------------------------------------------------------
 # Prompt Metadata
 # -----------------------------------------------------------------------------
@@ -475,3 +477,40 @@ during literature review and research planning.
 
 Do not introduce any information that is not supported by the paper.
 """
+
+# -----------------------------------------------------------------------------
+# Prompt Builder
+# -----------------------------------------------------------------------------
+
+__all__ = [
+    "PAPER_ANALYSIS_PROMPT",
+    "build_paper_analysis_prompt",
+]
+
+
+def build_paper_analysis_prompt(
+    paper_text: str,
+) -> str:
+    """
+    Build the complete prompt for research paper analysis.
+
+    Parameters
+    ----------
+    paper_text : str
+        Extracted text from the research paper.
+
+    Returns
+    -------
+    str
+        Complete prompt for the language model.
+    """
+
+    return f"""
+      {PAPER_ANALYSIS_PROMPT}
+
+      ===============================================================================
+      RESEARCH PAPER
+      ===============================================================================
+
+      {paper_text}
+      """

@@ -1,83 +1,145 @@
 """
 ===============================================================================
 Project      : AI Research Assistant
-Module       : Research Agent
-Agent Name   : Paper Analyzer
-Version      : 1.0.0
+Module       : Paper Analyzer
+File         : paper_analyzer.py
+Version      : 1.1.0
 Author       : Dr. B. Sudhakar
 
 Description:
-    Coordinates research paper analysis by combining the system prompt,
-    paper analysis prompt, and the selected language model service.
+    Orchestrates the research paper analysis workflow.
 
 Responsibilities:
-    • Load prompts
-    • Prepare the final prompt
-    • Invoke the LLM service
-    • Return the generated analysis
+    - Validate extracted paper text.
+    - Build analysis prompts.
+    - Invoke the configured LLM service.
+    - Measure execution time.
+    - Produce an AnalysisRecord.
 
-Last Updated:
-    2026-06-28
+Notes:
+    - This module contains orchestration logic only.
+    - It does not interact with the UI or the database.
 ===============================================================================
 """
 
+from __future__ import annotations
+
+import time
+
+from app.models.analysis_record import AnalysisRecord
 from app.prompts.common.system_prompt import SYSTEM_PROMPT
-
 from app.prompts.research.paper_analysis_prompt import (
-    PAPER_ANALYSIS_PROMPT
+    build_paper_analysis_prompt,
 )
-
 from app.services.ollama_service import OllamaService
+from app.utils.pdf_extractor import PDFExtractionResult
+
+__all__ = [
+    "PaperAnalyzer",
+]
 
 
 class PaperAnalyzer:
     """
-    AI Agent responsible for research paper analysis.
+    Orchestrates research paper analysis.
     """
 
-    def __init__(self):
-
-        self.system_prompt = SYSTEM_PROMPT
-
-        self.analysis_prompt = PAPER_ANALYSIS_PROMPT
-
-        self.llm_service = OllamaService()
-
-        self.agent_name = "Paper Analyzer"
-
-        self.version = "1.0.0"
-
-    def analyze(self, paper_text):
+    def __init__(
+        self,
+        llm_service: OllamaService | None = None,
+    ) -> None:
         """
-        Analyze the given research paper.
+        Initialize the paper analyzer.
 
         Parameters
         ----------
-        paper_text : str
-            Extracted text from the research paper.
+        llm_service : OllamaService | None, optional
+            Language model service.
+            If omitted, a default OllamaService instance is created.
+        """
+
+        self._llm = llm_service or OllamaService()
+
+    def analyze(
+        self,
+        pdf_result: PDFExtractionResult,
+        filename: str,
+    ) -> AnalysisRecord:
+        """
+        Analyze a research paper.
+
+        Parameters
+        ----------
+        pdf_result : PDFExtractionResult
+            Extracted PDF content.
+
+        filename : str
+            Original PDF filename.
 
         Returns
         -------
-        str
-            AI-generated analysis.
+        AnalysisRecord
+            Completed analysis record.
+
+        Raises
+        ------
+        ValueError
+            If the extracted text is empty.
+
+        RuntimeError
+            If the Ollama server is unavailable.
         """
 
-        if not paper_text.strip():
-            return "No paper text was provided."
+        if not pdf_result.text.strip():
+            raise ValueError(
+                "No text was extracted from the PDF."
+            )
 
-        user_prompt = f"""
-{self.analysis_prompt}
+        if not self._llm.is_available():
+            raise RuntimeError(
+                "Ollama server is not available."
+            )
 
-===============================================================================
-RESEARCH PAPER
-===============================================================================
-
-{paper_text}
-"""
-
-        response = self.llm_service.generate(
-            system_prompt=self.system_prompt,
-            user_prompt=user_prompt
+        user_prompt = build_paper_analysis_prompt(
+            pdf_result.text
         )
 
-        return response
+        start_time = time.perf_counter()
+
+        response = self._llm.generate(
+            system_prompt=SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+        )
+
+        execution_time = (
+            time.perf_counter() - start_time
+        )
+
+        return AnalysisRecord(
+            title=pdf_result.title,
+            filename=filename,
+            input_source="PDF Upload",
+            analysis_type="Research Paper Analysis",
+
+            # -----------------------------------------------------------------
+            # PDF Statistics
+            # -----------------------------------------------------------------
+            total_pages=pdf_result.total_pages,
+            total_characters=pdf_result.total_characters,
+
+            # -----------------------------------------------------------------
+            # AI Analysis
+            # -----------------------------------------------------------------
+            analysis=response.content,
+
+            # -----------------------------------------------------------------
+            # LLM Information
+            # -----------------------------------------------------------------
+            provider=response.provider,
+            model=response.model,
+
+            # -----------------------------------------------------------------
+            # Performance
+            # -----------------------------------------------------------------
+            execution_time=execution_time,
+        )
