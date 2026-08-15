@@ -2,19 +2,14 @@
 ===============================================================================
 Project      : AI Research Assistant
 File         : database.py
-Version      : 1.0.0
+Version      : 1.1.0
 Author       : Dr. B. Sudhakar
 
 Description:
 SQLite database infrastructure.
 
-Responsibilities:
-    - Create database connections.
-    - Initialize the database schema.
-    - Configure SQLite settings.
-    - Provide reusable database access for repositories.
-
-Business logic must not be implemented in this module.
+The database path comes from ApplicationConfig. DATABASE_PATH remains the
+default location for compatibility with existing imports.
 ===============================================================================
 """
 
@@ -26,22 +21,15 @@ from pathlib import Path
 __all__ = [
     "DATABASE_PATH",
     "get_connection",
+    "get_database_path",
     "initialize_database",
 ]
-
-# =============================================================================
-# Database Configuration
-# =============================================================================
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DATA_DIRECTORY = PROJECT_ROOT / "data"
 
 DATABASE_PATH = DATA_DIRECTORY / "history.db"
-
-# =============================================================================
-# SQL Schema
-# =============================================================================
 
 CREATE_ANALYSIS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS analysis_history (
@@ -72,48 +60,32 @@ CREATE TABLE IF NOT EXISTS analysis_history (
 );
 """
 
-# =============================================================================
-# Public API
-# =============================================================================
+
+def get_database_path() -> Path:
+    """Return the configured SQLite path."""
+
+    from app.config.loader import get_application_config
+
+    return get_application_config().database.path
 
 
-def get_connection() -> sqlite3.Connection:
+def get_connection(database_path: Path | None = None) -> sqlite3.Connection:
     """
     Create and return a configured SQLite connection.
-
-    Returns
-    -------
-    sqlite3.Connection
-        Configured database connection.
     """
 
-    DATA_DIRECTORY.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    path = Path(database_path) if database_path is not None else get_database_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    connection = sqlite3.connect(DATABASE_PATH)
-
+    connection = sqlite3.connect(path)
     connection.row_factory = sqlite3.Row
-
-    connection.execute(
-        "PRAGMA foreign_keys = ON;"
-    )
-
+    connection.execute("PRAGMA foreign_keys = ON;")
     return connection
 
 
-def initialize_database() -> None:
-    """
-    Initialize the SQLite database.
+def initialize_database(database_path: Path | None = None) -> None:
+    """Create required tables if they do not already exist."""
 
-    Creates all required tables if they do not already exist.
-    """
-
-    with get_connection() as connection:
-
-        connection.execute(
-            CREATE_ANALYSIS_TABLE_SQL
-        )
-
+    with get_connection(database_path) as connection:
+        connection.execute(CREATE_ANALYSIS_TABLE_SQL)
         connection.commit()

@@ -7,6 +7,11 @@ from __future__ import annotations
 import streamlit as st
 
 from app.config.branding import get_brand_config
+from app.config.loader import (
+    configure_logging,
+    ensure_runtime_directories,
+    get_application_config,
+)
 from app.core.navigation import render_page
 from app.core.session import initialize_session
 from app.storage.database import initialize_database
@@ -26,6 +31,9 @@ def configure_page() -> None:
 
 
 def initialize_application() -> None:
+    config = get_application_config()
+    configure_logging(config)
+    ensure_runtime_directories(config)
     initialize_database()
     initialize_session()
     ThemeManager.initialize()

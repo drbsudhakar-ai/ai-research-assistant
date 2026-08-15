@@ -3,49 +3,37 @@
 Project      : AI Research Assistant
 Module       : LLM Configuration
 File         : llm_config.py
-Version      : 0.4.0
+Version      : 0.5.0
 Author       : Dr. B. Sudhakar
 
 Description:
-    Central configuration for Large Language Model (LLM) providers and models.
-    This module enables provider abstraction, allowing the application to
-    switch between local and cloud models with minimal code changes.
+    Compatibility defaults for LLM provider and generation parameters.
 
-Supported Providers:
-    • Ollama
-    • OpenAI (Future)
-    • Gemini (Future)
-    • DeepSeek (Future)
-
-Last Updated:
-    2026-06-28
+    Canonical runtime values come from ApplicationConfig via
+    ``get_application_config()``. This module re-exports the same defaults
+    so existing imports keep working.
 ===============================================================================
 """
 
-# -----------------------------------------------------------------------------
-# Default Provider Configuration
-# -----------------------------------------------------------------------------
+from app.config.application_config import (
+    DEFAULT_LLM_MODEL,
+    DEFAULT_LLM_PROVIDER,
+    DEFAULT_MAX_INPUT_CHARACTERS,
+    DEFAULT_TEMPERATURE,
+)
 
-PROVIDER_NAME = "ollama"
+PROVIDER_NAME = DEFAULT_LLM_PROVIDER
 
-MODEL_NAME = "qwen3:4b"
-
-# -----------------------------------------------------------------------------
-# Model Recommendations
-# -----------------------------------------------------------------------------
+MODEL_NAME = DEFAULT_LLM_MODEL
 
 RECOMMENDED_MODELS = {
     "paper_analysis": {
         "minimum": "qwen3:4b",
         "recommended": "qwen3:8b",
-        "advanced": "gemini-2.5-pro"
+        "advanced": "gemini-2.5-pro",
     }
 }
 
-# -----------------------------------------------------------------------------
-# LLM Parameters
-# -----------------------------------------------------------------------------
+TEMPERATURE = DEFAULT_TEMPERATURE
 
-TEMPERATURE = 0.2
-
-MAX_INPUT_CHARACTERS = 10000
+MAX_INPUT_CHARACTERS = DEFAULT_MAX_INPUT_CHARACTERS

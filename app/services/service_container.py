@@ -3,15 +3,12 @@
 Project      : AI Research Assistant
 Module       : Service Container
 File         : service_container.py
-Version      : 1.0.0
+Version      : 1.1.0
 
 Description:
-    Application dependency container.
+    Application dependency container / composition root.
 
-    Responsible for creating and exposing application services.
-
-    This module acts as the composition root for dependency injection.
-
+    Services are constructed from one ApplicationConfig instance.
 ===============================================================================
 """
 
@@ -19,182 +16,74 @@ from __future__ import annotations
 
 from functools import cached_property
 
-
-from app.utils.pdf_extractor import (
-    PDFExtractor,
-)
-
-from app.utils.paper_preprocessor import (
-    PaperPreprocessor,
-)
-
-from app.agents.paper_analyzer import (
-    PaperAnalyzer,
-)
-
-from app.services.history_service import (
-    HistoryService,
-)
-
-
+from app.agents.paper_analyzer import PaperAnalyzer
+from app.config.application_config import ApplicationConfig
+from app.config.loader import get_application_config
 from app.core.pipeline.research_analysis_pipeline_factory import (
     ResearchAnalysisPipelineFactory,
 )
-
-
-from app.services.analysis_service import (
-    AnalysisService,
-)
-
+from app.services.analysis_service import AnalysisService
+from app.services.history_service import HistoryService
+from app.services.llm_service import LLMService
+from app.utils.paper_preprocessor import PaperPreprocessor
+from app.utils.pdf_extractor import PDFExtractor
 
 __all__ = [
     "ServiceContainer",
 ]
 
 
-
 class ServiceContainer:
-    """
-    Central dependency container.
+    """Central dependency container. All application services are created here."""
 
-    All application services are created here.
-    """
+    VERSION = "1.1.0"
 
+    def __init__(self, config: ApplicationConfig | None = None) -> None:
+        self._config = config or get_application_config()
 
-    VERSION = "1.0.0"
+    @property
+    def config(self) -> ApplicationConfig:
+        """Validated application configuration for this container."""
 
-
-
-    # ------------------------------------------------------------------
-    # PDF Services
-    # ------------------------------------------------------------------
+        return self._config
 
     @cached_property
-    def pdf_extractor(
-        self,
-    ) -> PDFExtractor:
-        """
-        PDF extraction service.
-        """
-
+    def pdf_extractor(self) -> PDFExtractor:
         return PDFExtractor()
 
-
-
     @cached_property
-    def paper_preprocessor(
-        self,
-    ) -> PaperPreprocessor:
-        """
-        Paper preprocessing service.
-        """
-
+    def paper_preprocessor(self) -> PaperPreprocessor:
         return PaperPreprocessor()
 
-
-
-    # ------------------------------------------------------------------
-    # AI Services
-    # ------------------------------------------------------------------
+    @cached_property
+    def llm_service(self) -> LLMService:
+        return LLMService.from_config(self._config)
 
     @cached_property
-    def paper_analyzer(
-        self,
-    ) -> PaperAnalyzer:
-        """
-        AI paper analysis service.
-        """
-
-        return PaperAnalyzer()
-
-
-
-    # ------------------------------------------------------------------
-    # Persistence Services
-    # ------------------------------------------------------------------
+    def paper_analyzer(self) -> PaperAnalyzer:
+        return PaperAnalyzer(llm_service=self.llm_service)
 
     @cached_property
-    def history_service(
-        self,
-    ) -> HistoryService:
-        """
-        Analysis history service.
-        """
-
+    def history_service(self) -> HistoryService:
         return HistoryService()
 
-
-
-    # ------------------------------------------------------------------
-    # Pipeline Services
-    # ------------------------------------------------------------------
-
     @cached_property
-    def research_analysis_pipeline_factory(
-        self,
-    ) -> ResearchAnalysisPipelineFactory:
-        """
-        Research pipeline factory.
-        """
-
+    def research_analysis_pipeline_factory(self) -> ResearchAnalysisPipelineFactory:
         return ResearchAnalysisPipelineFactory(
-
             pdf_extractor=self.pdf_extractor,
-
             paper_preprocessor=self.paper_preprocessor,
-
             paper_analyzer=self.paper_analyzer,
-
             history_service=self.history_service,
-
         )
-
-
-
-    # ------------------------------------------------------------------
-    # Application Services
-    # ------------------------------------------------------------------
 
     @cached_property
-    def analysis_service(
-        self,
-    ) -> AnalysisService:
-        """
-        Main analysis orchestration service.
-        """
-
-        return AnalysisService(
-
-            pipeline_factory=(
-                self.research_analysis_pipeline_factory
-            )
-
-        )
-
-
-
-    # ------------------------------------------------------------------
-    # Metadata
-    # ------------------------------------------------------------------
+    def analysis_service(self) -> AnalysisService:
+        return AnalysisService(pipeline_factory=self.research_analysis_pipeline_factory)
 
     @property
-    def name(
-        self,
-    ) -> str:
-        """
-        Container name.
-        """
-
+    def name(self) -> str:
         return "Application Service Container"
 
-
-
     @property
-    def version(
-        self,
-    ) -> str:
-        """
-        Container version.
-        """
-
+    def version(self) -> str:
         return self.VERSION

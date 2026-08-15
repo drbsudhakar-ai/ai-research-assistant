@@ -16,6 +16,7 @@ def test_streamlit_entry_imports_navigation_and_theme() -> None:
     assert "app.core.navigation" in imported
     assert "app.ui.theme" in imported
     assert "app.config.branding" in imported
+    assert "app.config.loader" in imported
 
 
 def test_navigation_routes_cover_major_screens() -> None:

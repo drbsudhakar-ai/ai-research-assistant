@@ -198,13 +198,24 @@ It is **not** used by `streamlit_app.py`. Do not merge without review.
 
 ### Configuration
 
-Multiple owners still exist (deferred to T002):
+Canonical runtime configuration (T002):
 
-- `BrandConfig` (identity; T001 source of truth)
-- `app.config.app_config` re-exports identity from `BrandConfig`
-- `SettingsManager` singleton + JSON file
-- Streamlit session state
-- LLM/provider defaults in `app/settings/api`
+```text
+optional .env
+        ↓
+environment variables (AI_RA_*)
+        ↓
+validated ApplicationConfig (app.config.loader)
+        ↓
+ServiceContainer / SQLite path / logging
+```
+
+- Identity remains `BrandConfig`.
+- `app.config.llm_config` and `app.config.app_config` are compatibility
+  surfaces over the same defaults / live developer-mode flag.
+- `SettingsManager` is the persisted Settings-UI API layer. It is **not**
+  auto-merged into runtime `ApplicationConfig`.
+- See `docs/architecture/CONFIGURATION.md`.
 
 ### Branding
 
@@ -239,7 +250,6 @@ PDF/DOCX generators are **not implemented**.
 
 ## Recommended corrections (not T001)
 
-- T002: one configuration model.
 - T003: stabilize domain contracts (`AnalysisRun`, job status).
 - T011–T012: job registry, `CANCEL_REQUESTED` vs `CANCELLED`, rerun recovery.
 - T014: Analyze page should call application use cases only (single prepare).
