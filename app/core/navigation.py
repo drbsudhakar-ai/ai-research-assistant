@@ -20,19 +20,17 @@ from __future__ import annotations
 
 from app.config.navigation_config import PageKey
 from app.ui.pages.about import show_about_page
-from app.ui.pages.analyze import show_analyze_page
+from app.ui.pages.analyze import (
+    render as show_analyze_page,
+)
+from app.ui.pages.dashboard import show_dashboard_page
 from app.ui.pages.history import show_history_page
 from app.ui.pages.settings import show_settings_page
-from app.ui.pages.dashboard import show_dashboard_page
 
 __all__ = [
     "render_page",
 ]
 
-
-# =============================================================================
-# Page Routes
-# =============================================================================
 
 PAGE_ROUTES = {
     PageKey.DASHBOARD: show_dashboard_page,
@@ -43,25 +41,14 @@ PAGE_ROUTES = {
 }
 
 
-
-
-# =============================================================================
-# Public API
-# =============================================================================
-
 def render_page(page_key: str) -> None:
     """
     Render the selected application page.
-
-    Parameters
-    ----------
-    page_key : str
-        Unique page identifier.
     """
 
-    page = PAGE_ROUTES.get(
-        page_key,
-        show_dashboard_page,
-    )
+    page = PAGE_ROUTES.get(page_key)
+
+    if page is None:
+        page = show_dashboard_page
 
     page()

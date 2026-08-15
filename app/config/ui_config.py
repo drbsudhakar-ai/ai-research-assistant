@@ -12,6 +12,8 @@ User interface configuration.
 
 from __future__ import annotations
 
+from app.config.branding import get_brand_config
+
 # =============================================================================
 # Sidebar
 # =============================================================================
@@ -28,12 +30,9 @@ SHOW_COPYRIGHT = True
 # Dashboard
 # =============================================================================
 
-WELCOME_TITLE = "Welcome to AI Research Assistant"
+WELCOME_TITLE = f"Welcome to {get_brand_config().application_name}"
 
-WELCOME_MESSAGE = (
-    "Upload a research paper and leverage AI to generate summaries, "
-    "extract keywords, identify research gaps, and gain actionable insights."
-)
+WELCOME_MESSAGE = get_brand_config().tagline
 
 # =============================================================================
 # Messages

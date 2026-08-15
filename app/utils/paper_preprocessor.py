@@ -20,63 +20,58 @@ Business logic related to AI must not be implemented here.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-from app.utils.pdf_extractor import PDFExtractor
-from app.utils.pdf_validator import PDFValidator
-
-from streamlit.runtime.uploaded_file_manager import UploadedFile
+from app.services.paper_section_extractor import PaperSectionExtractor
+from app.models import PreparedPaper
+from app.utils.pdf_extractor import PDFExtractionResult
 
 __all__ = [
-    "PaperContent",
+    
     "PaperPreprocessor",
 ]
 
-
-@dataclass(slots=True)
-class PaperContent:
-    """
-    Structured paper information.
-    """
-
-    title: str
-    filename: str
-    text: str
-    total_pages: int
-    total_characters: int
-
-
 class PaperPreprocessor:
     """
-    Coordinates PDF validation and extraction.
+    Builds a PreparedPaper from extracted PDF content.
     """
 
     def __init__(self) -> None:
         """
-        Initialize PDF preprocessing utilities.
+        Initialize paper preprocessing utilities.
         """
 
-        self._validator = PDFValidator()
-        self._extractor = PDFExtractor()
+        # self._validator = PDFValidator()
+        # self._extractor = PDFExtractor()
+        self._section_extractor = PaperSectionExtractor()
 
     def prepare(
         self,
-        uploaded_file: UploadedFile,
-    ) -> PaperContent:
+        extracted: PDFExtractionResult,
+        filename: str,
+    ) -> PreparedPaper:
         """
             Validate the uploaded PDF, extract its contents,
             and return structured paper information.
         """
-        self._validator.validate(uploaded_file)
-
-        extracted = self._extractor.extract_text(
-            uploaded_file
+        
+        if extracted is None:
+            raise ValueError(
+                "Extraction result cannot be None."
+            )
+        
+        paper_sections = self._section_extractor.extract(
+            title=extracted.title,
+            text=extracted.text,
         )
 
-        return PaperContent(
+        prepared = PreparedPaper(
             title=extracted.title,
-            filename=uploaded_file.name,
+            title_source=extracted.title_source,
+            title_confidence=extracted.title_confidence,
+            filename=filename,
             text=extracted.text,
             total_pages=extracted.total_pages,
             total_characters=extracted.total_characters,
+            sections=paper_sections,
         )
+
+        return prepared

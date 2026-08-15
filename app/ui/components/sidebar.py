@@ -22,10 +22,10 @@ from __future__ import annotations
 
 import streamlit as st
 
+from app.config.branding import get_brand_config
 from app.config.app_config import (
     APP_NAME,
     APP_VERSION,
-    AUTHOR,
 )
 from app.config.navigation_config import NAVIGATION_ITEMS
 
@@ -97,7 +97,7 @@ def _render_footer() -> None:
     st.divider()
 
     if SHOW_AUTHOR:
-        st.caption(f"Developed by {AUTHOR}")
+        st.caption(get_brand_config().credit)
 
 
 # =============================================================================
