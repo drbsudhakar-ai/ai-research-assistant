@@ -3,257 +3,138 @@
 Project      : AI Research Assistant
 Module       : Analysis Service
 File         : analysis_service.py
-Version      : 3.0.0
+Version      : 4.0.0
 
 Description:
-    Application service responsible for executing research paper analysis.
+    Canonical application service for the research-paper analysis use case.
 
-    Responsibilities:
-        - Create pipeline execution context
-        - Attach progress reporting
-        - Handle cancellation
-        - Execute research analysis pipeline
+    Public contract:
+        AnalysisRequest -> AnalysisResult
 
+    Pipeline execution, history persistence, and provider calls remain
+    behind this boundary.
 ===============================================================================
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
-from app.core.pipeline.pipeline_context import (
-    PipelineContext,
-)
+from app.core.pipeline.pipeline_context import PipelineContext
 from app.core.pipeline.pipeline_keys import PipelineKeys
-from app.core.pipeline.pipeline_result import (
-    PipelineResult,
-)
-from app.core.pipeline.pipeline_runner import (
-    PipelineRunner,
-)
-from app.core.pipeline.research_analysis_pipeline_factory import (
-    ResearchAnalysisPipelineFactory,
-)
-from app.core.progress.progress_manager import (
-    ProgressManager,
-)
+from app.core.pipeline.pipeline_result import PipelineResult
+from app.core.pipeline.pipeline_runner import PipelineRunner
+from app.core.progress.progress_reporter import ProgressReporter
 from app.core.progress.progress_stage import ProgressStage
+from app.models.analysis_request import AnalysisRequest
 from app.models.analysis_result import AnalysisResult
+from app.models.exceptions import AnalysisError
 
 __all__ = [
     "AnalysisService",
 ]
 
 
+class PipelineFactory(Protocol):
+    """Creates a configured analysis pipeline. Implementation stays hidden."""
+
+    def create(self) -> Any: ...
+
 
 class AnalysisService:
-    """
-    Orchestration service for research paper analysis.
-    """
+    """Coordinates the live analysis use case."""
 
+    VERSION = "4.0.0"
 
-    VERSION = "3.0.0"
-
-
-
-    def __init__(
-        self,
-        pipeline_factory: ResearchAnalysisPipelineFactory,
-    ) -> None:
-        """
-        Initialize analysis service.
-
-        Parameters
-        ----------
-        pipeline_factory:
-            Factory creating configured pipelines.
-        """
-
+    def __init__(self, pipeline_factory: PipelineFactory) -> None:
         self._pipeline_factory = pipeline_factory
-
-
-
-    # =========================================================================
-    # Main API
-    # =========================================================================
 
     def analyze(
         self,
-        pdf_path: str | Path,
-        metadata: dict[str, Any] | None = None,
-        progress_manager: ProgressManager | None = None,
-    ) -> PipelineResult:
-        """
-        Execute research paper analysis.
+        request: AnalysisRequest,
+        *,
+        progress_reporter: ProgressReporter | None = None,
+    ) -> AnalysisResult:
+        """Run analysis for ``request`` and return the canonical outcome."""
 
-        Parameters
-        ----------
-        pdf_path:
-            Uploaded PDF path.
-
-        metadata:
-            Additional execution metadata.
-
-        progress_manager:
-            Optional progress manager used by UI.
-
-        Returns
-        -------
-        PipelineResult
-            Pipeline execution result.
-        """
-
-
-        progress_manager = (
-            progress_manager
-            or ProgressManager()
-        )
-
-
-        #
-        # Create pipeline context
-        #
-        context = PipelineContext(
-
-            data={
-
-                PipelineKeys.PDF_PATH: str(
-                    pdf_path
-                ),
-
-                "metadata": (
-                    metadata
-                    or {}
-                ),
-
-            },
-
-            progress_reporter=(
-                progress_manager
-            ),
-
-            cancellation_token=(
-
-                progress_manager.cancellation_token
-
-            ),
-
-        )
-
-
-        #
-        # Initial progress
-        #
-        context.report_progress(
-
-            message="Starting analysis",
-
-            percentage=0,
-
-            stage=ProgressStage.STARTING,
-
-        )
-
-
-        #
-        # Create pipeline
-        #
-        pipeline = (
-            self._pipeline_factory.create()
-        )
-
-
-        #
-        # Execute pipeline
-        #
-        runner = PipelineRunner(
-            pipeline
-        )
-
-
-        result = runner.run(
-            context
-        )
-
-        if result.success:
-
-            context.report_progress(
-
-                message="Analysis completed",
-
-                percentage=100,
-
-                stage=ProgressStage.COMPLETED,
-
+        if not isinstance(request, AnalysisRequest):
+            raise AnalysisError(
+                "analyze() requires an AnalysisRequest.",
             )
 
-        return result
+        context = PipelineContext(
+            data={
+                PipelineKeys.PDF_PATH: request.source_path,
+                PipelineKeys.FILENAME: request.filename,
+                PipelineKeys.ANALYSIS_TYPE: request.analysis_type,
+            },
+            progress_reporter=progress_reporter,
+            cancellation_token=getattr(
+                progress_reporter,
+                "cancellation_token",
+                None,
+            ),
+        )
+        context.report_progress(
+            message="Starting analysis",
+            percentage=0,
+            stage=ProgressStage.STARTING,
+        )
 
-    def result_from_pipeline(self, pipeline_result: PipelineResult) -> AnalysisResult | None:
-        """Return the canonical analysis outcome from a pipeline envelope."""
+        pipeline = self._pipeline_factory.create()
+        pipeline_result = PipelineRunner(pipeline).run(context)
+
+        if pipeline_result.success:
+            context.report_progress(
+                message="Analysis completed",
+                percentage=100,
+                stage=ProgressStage.COMPLETED,
+            )
+
+        return self._outcome_from_pipeline(pipeline_result)
+
+    async def analyze_async(
+        self,
+        request: AnalysisRequest,
+        *,
+        progress_reporter: ProgressReporter | None = None,
+    ) -> AnalysisResult:
+        return self.analyze(
+            request,
+            progress_reporter=progress_reporter,
+        )
+
+    def result_from_pipeline(
+        self,
+        pipeline_result: PipelineResult,
+    ) -> AnalysisResult | None:
+        """Map a pipeline envelope to AnalysisResult without raising."""
 
         stored = pipeline_result.context.get(PipelineKeys.ANALYSIS_RESULT)
         if stored is None:
             return None
         if isinstance(stored, AnalysisResult):
             return stored
-        raise TypeError(
-            "Pipeline analysis_result must be an AnalysisResult."
-        )
+        raise TypeError("Pipeline analysis_result must be an AnalysisResult.")
 
-
-
-    # =========================================================================
-    # Async API
-    # =========================================================================
-
-    async def analyze_async(
+    def _outcome_from_pipeline(
         self,
-        pdf_path: str | Path,
-        metadata: dict[str, Any] | None = None,
-        progress_manager: ProgressManager | None = None,
-    ) -> PipelineResult:
-        """
-        Async wrapper.
+        pipeline_result: PipelineResult,
+    ) -> AnalysisResult:
+        if not pipeline_result.success:
+            raise AnalysisError(
+                "Research paper analysis failed.",
+            ) from pipeline_result.error
 
-        Keeps future compatibility for async LLM providers.
-        """
-
-        return self.analyze(
-
-            pdf_path=pdf_path,
-
-            metadata=metadata,
-
-            progress_manager=progress_manager,
-
-        )
-
-
-
-    # =========================================================================
-    # Metadata
-    # =========================================================================
+        result = self.result_from_pipeline(pipeline_result)
+        if result is None:
+            raise AnalysisError("Analysis completed without an AnalysisResult.")
+        return result
 
     @property
-    def name(
-        self,
-    ) -> str:
-        """
-        Service name.
-        """
-
+    def name(self) -> str:
         return "Research Analysis Service"
 
-
-
     @property
-    def version(
-        self,
-    ) -> str:
-        """
-        Service version.
-        """
-
+    def version(self) -> str:
         return self.VERSION

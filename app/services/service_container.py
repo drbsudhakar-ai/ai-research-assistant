@@ -25,6 +25,7 @@ from app.core.pipeline.research_analysis_pipeline_factory import (
 from app.services.analysis_service import AnalysisService
 from app.services.history_service import HistoryService
 from app.services.llm_service import LLMService
+from app.storage.history_repository import HistoryRepository
 from app.utils.paper_preprocessor import PaperPreprocessor
 from app.utils.pdf_extractor import PDFExtractor
 
@@ -64,8 +65,12 @@ class ServiceContainer:
         return PaperAnalyzer(llm_service=self.llm_service)
 
     @cached_property
+    def history_repository(self) -> HistoryRepository:
+        return HistoryRepository()
+
+    @cached_property
     def history_service(self) -> HistoryService:
-        return HistoryService()
+        return HistoryService(repository=self.history_repository)
 
     @cached_property
     def research_analysis_pipeline_factory(self) -> ResearchAnalysisPipelineFactory:

@@ -50,10 +50,7 @@ from app.core.progress.progress_renderer import (
     ProgressRenderer,
 )
 
-from app.core.pipeline.pipeline_result import (
-    PipelineResult,
-)
-from app.core.pipeline.pipeline_keys import PipelineKeys
+from app.models.analysis_request import AnalysisRequest
 from app.models.analysis_result import AnalysisResult
 from app.ui.components.page import (
     render_page_header,
@@ -501,16 +498,13 @@ def _analysis_worker(
     """
 
     try:
-        result = (
-            container.analysis_service.analyze(
-                pdf_path=pdf_path,
-                metadata={
-                    "source": "streamlit",
-                },
-                progress_manager=(
-                    progress_manager
-                ),
-            )
+        request = AnalysisRequest(
+            source_path=str(pdf_path),
+            filename=pdf_path.name,
+        )
+        result = container.analysis_service.analyze(
+            request,
+            progress_reporter=progress_manager,
         )
         _analysis_queue.put(result)
 
@@ -563,7 +557,7 @@ def _render_running_analysis() -> None:
 
 
 def _render_result(
-    result: PipelineResult,
+    result: AnalysisResult,
 ) -> None:
     """
     Render final report.
@@ -579,32 +573,7 @@ def _render_result(
     )
 
 
-    if not result.success:
-
-        st.error(
-            "Analysis did not complete successfully."
-        )
-
-        return
-
-
-
-    analysis = result.context.data.get(
-        PipelineKeys.ANALYSIS_RESULT
-    )
-
-
-    if not isinstance(analysis, AnalysisResult):
-
-        st.warning(
-            "No analysis result available."
-        )
-
-        return
-
-
-
-    content = analysis.analysis
+    content = result.analysis
 
 
     st.markdown(
@@ -612,18 +581,14 @@ def _render_result(
     )
 
     paper = st.session_state.get("prepared_paper")
-    metadata = result.context.data.get(
-        PipelineKeys.ANALYSIS_METADATA,
-        {},
-    )
     render_report_export(
         {
             "title": getattr(paper, "title", "Untitled Paper"),
             "filename": getattr(paper, "filename", "-"),
             "pages": getattr(paper, "total_pages", "-"),
             "characters": getattr(paper, "total_characters", "-"),
-            "provider": analysis.provider,
-            "model": analysis.model,
+            "provider": result.provider,
+            "model": result.model,
             "analysis": content,
         }
     )
@@ -634,7 +599,7 @@ def _render_result(
     ):
 
         st.json(
-            metadata
+            result.to_dict()
         )
 
 

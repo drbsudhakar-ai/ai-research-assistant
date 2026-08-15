@@ -195,7 +195,16 @@ contract. Unifying this into a single application use case is **T014**.
 
 Live composition root: `app.services.service_container.ServiceContainer`.
 
-Live analysis API: `app.services.analysis_service.AnalysisService(pipeline_factory=...)`.
+Live analysis API (T004):
+
+```text
+AnalysisRequest → AnalysisService.analyze(...) → AnalysisResult
+```
+
+Pipeline execution stays inside `AnalysisService`. The UI must not depend
+on `PipelineResult` / pipeline keys.
+
+Application-service documentation: `docs/architecture/APPLICATION_SERVICES.md`.
 
 A second stack exists under `app.core.analysis` and `app.controllers`.
 It is **not** used by `streamlit_app.py`. Do not merge without review.
