@@ -7,11 +7,16 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.config.branding import BrandConfig, get_brand_config
+from app.models.analysis_record import AnalysisRecord
+from app.models.analysis_result import AnalysisResult
 
 
 @dataclass(frozen=True, slots=True)
 class ReportDocument:
-    """Brand-aware payload for downloadable analysis reports."""
+    """Brand-aware payload for downloadable analysis reports.
+
+    This module does not render Markdown/HTML/PDF.
+    """
 
     paper_title: str
     analysis: str
@@ -51,3 +56,34 @@ class ReportDocument:
             model=str(record.get("model") or "-"),
             brand=brand,
         )
+
+    @classmethod
+    def from_result(
+        cls,
+        result: AnalysisResult,
+        *,
+        title: str = "Untitled Paper",
+        filename: str = "-",
+        pages: int | str = "-",
+        characters: int | str = "-",
+        brand: BrandConfig | None = None,
+    ) -> ReportDocument:
+        return cls(
+            paper_title=title,
+            analysis=result.analysis,
+            filename=filename,
+            pages=pages,
+            characters=characters,
+            provider=result.provider,
+            model=result.model,
+            brand=brand,
+        )
+
+    @classmethod
+    def from_record(
+        cls,
+        record: AnalysisRecord,
+        *,
+        brand: BrandConfig | None = None,
+    ) -> ReportDocument:
+        return cls.from_mapping(record.to_dict(), brand=brand)

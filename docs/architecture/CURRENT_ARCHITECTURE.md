@@ -165,7 +165,11 @@ not change that job architecture.
 - `PDFExtractor.extract_text(file: BinaryIO) -> PDFExtractionResult`
 - `PaperPreprocessor.prepare(extracted, filename) -> PreparedPaper`
 - `PaperSectionExtractor.extract(title, text) -> PaperSections`
-- `PreparedPaper.sections: PaperSections` with `section_count` and `__len__`
+- `PreparedPaper.sections: PaperSections` with `section_count` (canonical count)
+  and `__len__` as a compatibility alias
+
+Canonical domain contracts are documented in
+`docs/architecture/DOMAIN_CONTRACTS.md` (T003).
 
 ### Analyze extract/prepare duplication (deferred to T014)
 
@@ -250,7 +254,6 @@ PDF/DOCX generators are **not implemented**.
 
 ## Recommended corrections (not T001)
 
-- T003: stabilize domain contracts (`AnalysisRun`, job status).
 - T011–T012: job registry, `CANCEL_REQUESTED` vs `CANCELLED`, rerun recovery.
 - T014: Analyze page should call application use cases only (single prepare).
 - T016: wire existing settings components.

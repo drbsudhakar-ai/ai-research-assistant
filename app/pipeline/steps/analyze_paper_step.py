@@ -22,18 +22,15 @@ from __future__ import annotations
 from time import perf_counter
 from typing import Any
 
-
+from app.agents.paper_analyzer import PaperAnalyzer
 from app.core.pipeline.base_pipeline_step import (
     BasePipelineStep,
 )
-
 from app.core.pipeline.pipeline_context import (
     PipelineContext,
 )
-
-
-from app.agents.paper_analyzer import PaperAnalyzer
-
+from app.core.pipeline.pipeline_keys import PipelineKeys
+from app.models.analysis_result import AnalysisResult
 
 __all__ = [
     "AnalyzePaperStep",
@@ -99,7 +96,7 @@ class AnalyzePaperStep(BasePipelineStep):
             Shared pipeline execution context.
         """
         # progress_reporter = context.progress_reporter
-        prepared_paper = context.get("prepared_paper")
+        prepared_paper = context.get(PipelineKeys.PREPARED_PAPER)
 
         if prepared_paper is None:
             raise ValueError("Prepared paper not available")
@@ -123,9 +120,9 @@ class AnalyzePaperStep(BasePipelineStep):
         )
 
 
-        if analysis_result is None:
+        if not isinstance(analysis_result, AnalysisResult):
 
-            raise RuntimeError(
+            raise TypeError(
                 "Paper analysis failed"
             )
 
@@ -134,12 +131,12 @@ class AnalyzePaperStep(BasePipelineStep):
         # Store result
         #
         context.set(
-            "analysis_result",
+            PipelineKeys.ANALYSIS_RESULT,
             analysis_result,
         )
 
         context.set(
-            "analysis_metadata",
+            PipelineKeys.ANALYSIS_METADATA,
             self._build_metadata(
                 analysis_result,
                 execution_time,
@@ -160,7 +157,7 @@ class AnalyzePaperStep(BasePipelineStep):
 
     def _build_metadata(
         self,
-        analysis_result: Any,
+        analysis_result: AnalysisResult,
         execution_time: float,
     ) -> dict[str, Any]:
         """
@@ -170,23 +167,15 @@ class AnalyzePaperStep(BasePipelineStep):
         return {
 
             "execution_time": round(
-                execution_time,
+                analysis_result.execution_time or execution_time,
                 2,
             ),
 
-            "provider": getattr(
-                analysis_result,
-                "provider",
-                None,
-            ),
+            "provider": analysis_result.provider,
 
-            "model": getattr(
-                analysis_result,
-                "model",
-                None,
-            ),
+            "model": analysis_result.model,
 
-            "status": "completed",
+            "status": analysis_result.status.value,
 
         }
 

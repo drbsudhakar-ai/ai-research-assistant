@@ -23,10 +23,11 @@ Notes:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app.core.progress.progress_stage import ProgressStage
+from app.models.exceptions import DomainValidationError
 
 __all__ = [
     "ProgressEvent",
@@ -35,37 +36,31 @@ __all__ = [
 
 @dataclass(slots=True, frozen=True)
 class ProgressEvent:
-    """
-    Immutable progress event emitted during workflow execution.
-
-    Parameters
-    ----------
-    stage
-        Current workflow stage.
-
-    message
-        Human-readable progress message.
-
-    percentage
-        Completion percentage (0-100).
-
-    timestamp
-        Event creation timestamp.
-
-    metadata
-        Optional provider-specific information.
-    """
+    """Immutable, UI-independent progress event."""
 
     stage: ProgressStage
-
     message: str
-
     percentage: int
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    timestamp: datetime = field(
-        default_factory=datetime.utcnow
-    )
+    def __post_init__(self) -> None:
+        if not isinstance(self.stage, ProgressStage):
+            raise DomainValidationError(
+                "stage must be a ProgressStage.",
+                field="stage",
+            )
+        if not 0 <= int(self.percentage) <= 100:
+            raise DomainValidationError(
+                "percentage must be between 0 and 100.",
+                field="percentage",
+            )
 
-    metadata: dict[str, Any] = field(
-        default_factory=dict
-    )
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "stage": self.stage.name,
+            "message": self.message,
+            "percentage": self.percentage,
+            "timestamp": self.timestamp.isoformat(),
+            "metadata": dict(self.metadata),
+        }

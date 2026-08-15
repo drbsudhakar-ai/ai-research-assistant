@@ -2,7 +2,7 @@
 ===============================================================================
 Project      : AI Research Assistant
 File         : history_service.py
-Version      : 1.0.0
+Version      : 2.0.0
 Author       : Dr. B. Sudhakar
 
 Description:
@@ -12,6 +12,7 @@ Responsibilities:
     - Validate analysis records.
     - Coordinate history persistence.
     - Provide business operations over analysis history.
+    - Provide dashboard-friendly history queries.
 
 Notes:
     - SQL must not be written in this module.
@@ -22,6 +23,8 @@ Notes:
 from __future__ import annotations
 
 from app.models.analysis_record import AnalysisRecord
+from app.models.analysis_result import AnalysisResult
+from app.models.prepared_paper import PreparedPaper
 from app.storage.history_repository import HistoryRepository
 
 __all__ = [
@@ -39,16 +42,19 @@ class HistoryService:
         repository: HistoryRepository | None = None,
     ) -> None:
         """
-        Initialize the history service.
+        Initialize history service.
 
         Parameters
         ----------
-        repository : HistoryRepository | None, optional
+        repository:
             Repository implementation.
-            If omitted, a default repository is created.
+            If omitted, default repository is created.
         """
 
-        self._repository = repository or HistoryRepository()
+        self._repository = (
+            repository
+            or HistoryRepository()
+        )
 
     # =========================================================================
     # Create
@@ -59,26 +65,52 @@ class HistoryService:
         record: AnalysisRecord,
     ) -> int:
         """
-        Save an analysis record.
+        Save analysis record.
 
         Parameters
         ----------
-        record : AnalysisRecord
+        record:
+            Analysis record.
 
         Returns
         -------
         int
             Database identifier.
-
-        Raises
-        ------
-        ValueError
-            If required fields are missing.
         """
 
-        self._validate_record(record)
+        self._validate_record(
+            record
+        )
 
-        return self._repository.add(record)
+        return self._repository.add(
+            record
+        )
+
+    def save_result(
+        self,
+        result: AnalysisResult,
+        *,
+        paper: PreparedPaper | None = None,
+        title: str = "",
+        filename: str = "",
+        input_source: str = "PDF",
+        analysis_type: str = "Research Paper Analysis",
+        total_pages: int = 0,
+        total_characters: int = 0,
+    ) -> int:
+        """Persist an AnalysisResult as a history AnalysisRecord."""
+
+        record = AnalysisRecord.from_result(
+            result,
+            paper=paper,
+            title=title,
+            filename=filename,
+            input_source=input_source,
+            analysis_type=analysis_type,
+            total_pages=total_pages,
+            total_characters=total_characters,
+        )
+        return self.save_analysis(record)
 
     # =========================================================================
     # Read
@@ -92,33 +124,79 @@ class HistoryService:
         Retrieve one analysis.
         """
 
-        return self._repository.get_by_id(record_id)
+        return self._repository.get_by_id(
+            record_id
+        )
+
 
     def get_all_analyses(
         self,
     ) -> list[AnalysisRecord]:
         """
         Retrieve all analyses.
+
+        Returns
+        -------
+        list[AnalysisRecord]
         """
 
         return self._repository.get_all()
+
+
+    def get_recent_analyses(
+        self,
+        limit: int = 5,
+    ) -> list[AnalysisRecord]:
+        """
+        Retrieve latest analysis records.
+
+        Used by:
+            - Dashboard recent activity
+            - Dashboard summary widgets
+
+        Parameters
+        ----------
+        limit:
+            Maximum number of records.
+
+        Returns
+        -------
+        list[AnalysisRecord]
+            Recent analysis records.
+        """
+
+        if limit <= 0:
+            return []
+
+
+        records = self._repository.get_all()
+
+
+        return records[:limit]
+
 
     def analysis_exists(
         self,
         record_id: int,
     ) -> bool:
         """
-        Check whether an analysis exists.
+        Check whether analysis exists.
         """
 
-        return self._repository.exists(record_id)
+        return self._repository.exists(
+            record_id
+        )
 
-    def get_analysis_count(self) -> int:
+
+    def get_analysis_count(
+        self,
+    ) -> int:
         """
         Return total stored analyses.
         """
 
         return self._repository.count()
+
 
     # =========================================================================
     # Delete
@@ -137,14 +215,20 @@ class HistoryService:
             True if deleted.
         """
 
-        return self._repository.delete(record_id)
+        return self._repository.delete(
+            record_id
+        )
 
-    def clear_history(self) -> None:
+
+    def clear_history(
+        self,
+    ) -> None:
         """
-        Delete every stored analysis.
+        Delete all stored analyses.
         """
 
         self._repository.delete_all()
+
 
     # =========================================================================
     # Validation
@@ -155,7 +239,7 @@ class HistoryService:
         record: AnalysisRecord,
     ) -> None:
         """
-        Validate an analysis record.
+        Validate analysis record.
 
         Raises
         ------
@@ -164,21 +248,28 @@ class HistoryService:
         """
 
         if not record.title.strip():
+
             raise ValueError(
                 "Paper title cannot be empty."
             )
 
+
         if not record.analysis.strip():
+
             raise ValueError(
                 "Analysis cannot be empty."
             )
 
+
         if not record.model.strip():
+
             raise ValueError(
                 "Model name cannot be empty."
             )
 
+
         if record.execution_time < 0:
+
             raise ValueError(
                 "Execution time cannot be negative."
             )

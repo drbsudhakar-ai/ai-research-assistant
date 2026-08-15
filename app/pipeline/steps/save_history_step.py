@@ -21,21 +21,19 @@ from __future__ import annotations
 
 from typing import Any
 
-
 from app.core.pipeline.base_pipeline_step import (
     BasePipelineStep,
 )
-
 from app.core.pipeline.pipeline_context import (
     PipelineContext,
 )
-
-
+from app.core.pipeline.pipeline_keys import PipelineKeys
 from app.models.analysis_record import AnalysisRecord
+from app.models.analysis_result import AnalysisResult
+from app.models.prepared_paper import PreparedPaper
 from app.services.history_service import (
     HistoryService,
 )
-
 
 __all__ = [
     "SaveHistoryStep",
@@ -103,33 +101,27 @@ class SaveHistoryStep(BasePipelineStep):
 
 
         analysis_result = context.data.get(
-            "analysis_result"
+            PipelineKeys.ANALYSIS_RESULT
         )
 
 
-        if analysis_result is None:
+        if not isinstance(analysis_result, AnalysisResult):
 
-            raise ValueError(
-                "Analysis result missing"
+            raise TypeError(
+                "Canonical AnalysisResult missing from pipeline context"
             )
 
 
+        paper = context.get(PipelineKeys.PREPARED_PAPER)
         paper_metadata = context.data.get(
-            "paper_metadata",
+            PipelineKeys.PAPER_METADATA,
             {},
         )
-
-
-        analysis_metadata = context.data.get(
-            "analysis_metadata",
-            {},
-        )
-
 
         record = self._build_record(
             analysis_result,
+            paper if isinstance(paper, PreparedPaper) else None,
             paper_metadata,
-            analysis_metadata,
         )
 
         record_id = self._history_service.save_analysis(record)
@@ -144,7 +136,7 @@ class SaveHistoryStep(BasePipelineStep):
         # Store persistence result
         #
         
-        context.data["history_record_id"] = record_id
+        context.data[PipelineKeys.HISTORY_RECORD_ID] = record_id
         # context.data["history_record"] = (
         #     saved_record
         # )
@@ -163,25 +155,23 @@ class SaveHistoryStep(BasePipelineStep):
 
     def _build_record(
         self,
-        analysis_result: Any,
+        analysis_result: AnalysisResult,
+        paper: PreparedPaper | None,
         paper_metadata: dict[str, Any],
-        analysis_metadata: dict[str, Any],
-    ) -> dict[str, Any]:
+    ) -> AnalysisRecord:
         """
-        Build history persistence payload.
+        Convert the canonical analysis outcome into a history record.
         """
 
-        return AnalysisRecord(
-            title=paper_metadata.get("title", "Unknown Paper"),
-            filename=paper_metadata.get("filename", ""),
+        return AnalysisRecord.from_result(
+            analysis_result,
+            paper=paper,
+            title=str(paper_metadata.get("title") or "Unknown Paper"),
+            filename=str(paper_metadata.get("filename") or ""),
             input_source="PDF",
             analysis_type="Research Paper Analysis",
-            total_pages=paper_metadata.get("pages", 0),
-            total_characters=paper_metadata.get("characters", 0),
-            analysis=analysis_result.analysis,
-            provider=analysis_metadata.get("provider", ""),
-            model=analysis_metadata.get("model", ""),
-            execution_time=analysis_metadata.get("execution_time", 0.0),
+            total_pages=int(paper_metadata.get("pages") or 0),
+            total_characters=int(paper_metadata.get("characters") or 0),
         )
 
 

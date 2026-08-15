@@ -25,16 +25,12 @@ from typing import Any
 from app.core.pipeline.base_pipeline_step import (
     BasePipelineStep,
 )
-
 from app.core.pipeline.pipeline_context import (
     PipelineContext,
 )
-
-
-from app.utils.pdf_extractor import PDFExtractor
-
+from app.core.pipeline.pipeline_keys import PipelineKeys
 from app.utils.paper_preprocessor import PaperPreprocessor
-
+from app.utils.pdf_extractor import PDFExtractor
 
 __all__ = [
     "PreparePaperStep",
@@ -107,7 +103,7 @@ class PreparePaperStep(BasePipelineStep):
         """
 
 
-        pdf_path = context.get("pdf_path")
+        pdf_path = context.get(PipelineKeys.PDF_PATH)
 
         if pdf_path is None:
             raise ValueError(
@@ -142,10 +138,10 @@ class PreparePaperStep(BasePipelineStep):
                 "Paper preprocessing failed"
             )
 
-        context.set("pdf_result", extraction_result)
-        context.set("prepared_paper", prepared_paper)
+        context.set(PipelineKeys.PDF_RESULT, extraction_result)
+        context.set(PipelineKeys.PREPARED_PAPER, prepared_paper)
         context.set(
-            "paper_metadata",
+            PipelineKeys.PAPER_METADATA,
             self._build_metadata(prepared_paper),
         )
 

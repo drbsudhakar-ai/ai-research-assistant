@@ -2,144 +2,371 @@
 ===============================================================================
 Project      : AI Research Assistant
 Module       : Paper Analyzer
-File         : paper_analyzer.py
-Version      : 1.1.0
+File         : app/agents/paper_analyzer.py
+Version      : 3.0.0
 Author       : Dr. B. Sudhakar
 
 Description:
-    Orchestrates the research paper analysis workflow.
+    Orchestrates AI analysis of a prepared research paper.
 
 Responsibilities:
-    - Validate extracted paper text.
-    - Build analysis prompts.
-    - Invoke the configured LLM service.
-    - Measure execution time.
-    - Produce an AnalysisRecord.
+    - Validate prepared paper.
+    - Build analysis prompt.
+    - Invoke configured LLM service.
+    - Report progress.
+    - Validate AI response.
+    - Produce AnalysisResult.
 
-Notes:
-    - This module contains orchestration logic only.
-    - It does not interact with the UI or the database.
+Non-Responsibilities:
+    - PDF extraction.
+    - Database persistence.
+    - UI rendering.
 ===============================================================================
 """
 
 from __future__ import annotations
 
-import time
+import logging
+from time import perf_counter
+from typing import Final
 
-from app.models.analysis_record import AnalysisRecord
+from app.core.progress.progress_reporter import ProgressReporter
+from app.core.progress.progress_stage import ProgressStage
+from app.models.analysis_result import AnalysisResult
+from app.models.prepared_paper import PreparedPaper
 from app.prompts.common.system_prompt import SYSTEM_PROMPT
-from app.prompts.research.paper_analysis_prompt import (
-    build_paper_analysis_prompt,
-)
-from app.services.ollama_service import OllamaService
-from app.utils.pdf_extractor import PDFExtractionResult
+from app.prompts.prompt_builder import PromptBuilder
+from app.services.llm_service import LLMService
 
 __all__ = [
     "PaperAnalyzer",
 ]
 
+_LOGGER = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Progress
+# =============================================================================
+
+class AnalysisProgress:
+    """
+    Progress percentages.
+    """
+
+    def __new__(cls) -> None:
+        raise TypeError(
+            "AnalysisProgress cannot be instantiated."
+        )
+
+    VALIDATE: Final[int] = 45
+    CHECK_SERVICE: Final[int] = 50
+    BUILD_PROMPT: Final[int] = 55
+    GENERATE: Final[int] = 70
+    VALIDATE_RESPONSE: Final[int] = 88
+    CREATE_RESULT: Final[int] = 95
+
+
+# =============================================================================
+# Paper Analyzer
+# =============================================================================
 
 class PaperAnalyzer:
     """
-    Orchestrates research paper analysis.
+    Performs AI analysis of a prepared research paper.
     """
+
+    _MIN_TEXT_LENGTH: Final[int] = 200
+    _MIN_RESPONSE_LENGTH: Final[int] = 100
 
     def __init__(
         self,
-        llm_service: OllamaService | None = None,
+        llm_service: LLMService | None = None,
+        prompt_builder: PromptBuilder | None = None,
+    ) -> None:
+
+        self._llm = llm_service or LLMService()
+        self._prompt_builder = (
+            prompt_builder
+            or PromptBuilder()
+        )
+
+    # =========================================================================
+    # Progress
+    # =========================================================================
+    def _report(
+        self,
+        reporter: ProgressReporter | None,
+        *,
+        stage: ProgressStage,
+        message: str,
+        percentage: int,
     ) -> None:
         """
-        Initialize the paper analyzer.
-
-        Parameters
-        ----------
-        llm_service : OllamaService | None, optional
-            Language model service.
-            If omitted, a default OllamaService instance is created.
+        Publish progress update.
         """
 
-        self._llm = llm_service or OllamaService()
+        if reporter is None:
+            return
+
+        reporter.update(
+            message=message,
+            percentage=percentage,
+            stage=stage,
+        )
+
+
+    def _report_analysis(
+        self,
+        reporter: ProgressReporter | None,
+        *,
+        message: str,
+        percentage: int,
+    ) -> None:
+
+        self._report(
+            reporter,
+            stage=ProgressStage.ANALYZING,
+            message=message,
+            percentage=percentage,
+        )
+
+    # =========================================================================
+    # Validation
+    # =========================================================================
+
+    def _validate_paper(
+        self,
+        paper: PreparedPaper,
+    ) -> None:
+        """
+        Validate prepared paper.
+        """
+
+        if paper is None:
+            raise ValueError(
+                "paper cannot be None."
+            )
+
+        if not paper.text.strip():
+            raise ValueError(
+                "Paper text is empty."
+            )
+
+        if len(
+            paper.text.strip()
+        ) < self._MIN_TEXT_LENGTH:
+
+            raise ValueError(
+                "Extracted paper text is too short."
+            )
+
+    def _validate_response(
+        self,
+        content: str,
+    ) -> None:
+        """
+        Validate AI response.
+        """
+
+        if not content.strip():
+            raise RuntimeError(
+                "LLM returned an empty response."
+            )
+
+        if len(
+            content.strip()
+        ) < self._MIN_RESPONSE_LENGTH:
+
+            raise RuntimeError(
+                "LLM response is too short."
+            )
+
+    # =========================================================================
+    # Public API
+    # =========================================================================
 
     def analyze(
         self,
-        pdf_result: PDFExtractionResult,
-        filename: str,
-    ) -> AnalysisRecord:
+        paper: PreparedPaper,
+        progress_reporter: ProgressReporter | None = None,
+    ) -> AnalysisResult:
         """
-        Analyze a research paper.
+        Analyze a prepared research paper.
 
         Parameters
         ----------
-        pdf_result : PDFExtractionResult
-            Extracted PDF content.
+        paper:
+            Prepared research paper.
 
-        filename : str
-            Original PDF filename.
+        progress_reporter:
+            Optional progress reporter.
 
         Returns
         -------
-        AnalysisRecord
-            Completed analysis record.
-
-        Raises
-        ------
-        ValueError
-            If the extracted text is empty.
-
-        RuntimeError
-            If the Ollama server is unavailable.
+        AnalysisResult
+            Canonical analysis outcome. Persistence uses AnalysisRecord.
         """
 
-        if not pdf_result.text.strip():
-            raise ValueError(
-                "No text was extracted from the PDF."
-            )
+        start_time = perf_counter()
+
+        self._report_analysis(
+            progress_reporter,
+            message="Validating research paper...",
+            percentage=AnalysisProgress.VALIDATE,
+        )
+
+        self._validate_paper(paper)
+
+        self._report_analysis(
+            progress_reporter,
+            message="Checking AI provider...",
+            percentage=AnalysisProgress.CHECK_SERVICE,
+        )
 
         if not self._llm.is_available():
             raise RuntimeError(
-                "Ollama server is not available."
+                f"{self._llm.provider} service is unavailable."
             )
 
-        user_prompt = build_paper_analysis_prompt(
-            pdf_result.text
+        self._report_analysis(
+            progress_reporter,
+            message="Building analysis prompt...",
+            percentage=AnalysisProgress.BUILD_PROMPT,
+        )
+        
+        
+        print(">>> Building prompt")
+        user_prompt = self._prompt_builder.build(
+            paper
+        )
+        print(">>> Prompt size:", len(user_prompt))
+        
+        self._report_analysis(
+            progress_reporter,
+            message="Analyzing research paper...",
+            percentage=AnalysisProgress.GENERATE,
         )
 
-        start_time = time.perf_counter()
+        _LOGGER.info(
+            "Starting AI analysis using provider='%s', model='%s'.",
+            self._llm.provider,
+            self._llm.model,
+        )
 
+        print(">>> Calling Ollama")
         response = self._llm.generate(
             system_prompt=SYSTEM_PROMPT,
             user_prompt=user_prompt,
         )
-
-        execution_time = (
-            time.perf_counter() - start_time
+        print(">>> Ollama returned")
+        self._report_analysis(
+            progress_reporter,
+            message="Validating AI response...",
+            percentage=AnalysisProgress.VALIDATE_RESPONSE,
         )
 
-        return AnalysisRecord(
-            title=pdf_result.title,
-            filename=filename,
-            input_source="PDF Upload",
-            analysis_type="Research Paper Analysis",
+        self._validate_response(
+            response.content
+        )
 
-            # -----------------------------------------------------------------
-            # PDF Statistics
-            # -----------------------------------------------------------------
-            total_pages=pdf_result.total_pages,
-            total_characters=pdf_result.total_characters,
+        execution_time = (
+            perf_counter() - start_time
+        )
 
-            # -----------------------------------------------------------------
-            # AI Analysis
-            # -----------------------------------------------------------------
-            analysis=response.content,
+        self._report_analysis(
+            progress_reporter,
+            message="Creating analysis result...",
+            percentage=AnalysisProgress.CREATE_RESULT,
+        )
 
-            # -----------------------------------------------------------------
-            # LLM Information
-            # -----------------------------------------------------------------
-            provider=response.provider,
-            model=response.model,
-
-            # -----------------------------------------------------------------
-            # Performance
-            # -----------------------------------------------------------------
+        result = AnalysisResult.from_llm_response(
+            response,
             execution_time=execution_time,
+        )
+
+        _LOGGER.info(
+            "Analysis completed successfully in %.2f seconds.",
+            execution_time,
+        )
+
+        return result
+
+    # =========================================================================
+    # Information
+    # =========================================================================
+
+    @property
+    def provider(self) -> str:
+        """
+        Return the configured AI provider.
+        """
+
+        return self._llm.provider
+
+    @property
+    def model(self) -> str:
+        """
+        Return the configured AI model.
+        """
+
+        return self._llm.model
+
+    # =========================================================================
+    # Health
+    # =========================================================================
+
+    def is_available(self) -> bool:
+        """
+        Determine whether the configured LLM provider is available.
+
+        Returns
+        -------
+        bool
+        """
+
+        return self._llm.is_available()
+
+    # =========================================================================
+    # Prompt
+    # =========================================================================
+
+    def build_prompt(
+        self,
+        paper: PreparedPaper,
+    ) -> str:
+        """
+        Build the analysis prompt.
+
+        This method exists primarily for testing and future extensibility.
+
+        Parameters
+        ----------
+        paper:
+            Prepared research paper.
+
+        Returns
+        -------
+        str
+        """
+
+        self._validate_paper(paper)
+
+        return self._prompt_builder.build(
+            paper,
+        )
+
+    # =========================================================================
+    # Representation
+    # =========================================================================
+
+    def __repr__(self) -> str:
+        """
+        Return a developer-friendly representation.
+        """
+
+        return (
+            f"{self.__class__.__name__}("
+            f"provider={self.provider!r}, "
+            f"model={self.model!r})"
         )

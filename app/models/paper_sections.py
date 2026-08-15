@@ -26,11 +26,37 @@ Notes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from typing import Any, Final
+
+from app.models.exceptions import DomainValidationError
 
 __all__ = [
+    "BODY_SECTION_FIELDS",
     "PaperSections",
 ]
+
+BODY_SECTION_FIELDS: Final[tuple[str, ...]] = (
+    "abstract",
+    "introduction",
+    "related_work",
+    "methodology",
+    "results",
+    "discussion",
+    "conclusion",
+    "references",
+)
+
+_BODY_DISPLAY_NAMES: Final[dict[str, str]] = {
+    "abstract": "Abstract",
+    "introduction": "Introduction",
+    "related_work": "Related Work",
+    "methodology": "Methodology",
+    "results": "Results",
+    "discussion": "Discussion",
+    "conclusion": "Conclusion",
+    "references": "References",
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -59,6 +85,19 @@ class PaperSections:
     conclusion: str = ""
 
     references: str = ""
+
+    def __post_init__(self) -> None:
+        for field_name in ("title", *BODY_SECTION_FIELDS):
+            value = getattr(self, field_name)
+            if not isinstance(value, str):
+                raise DomainValidationError(
+                    f"{field_name} must be a string.",
+                    field=field_name,
+                )
+
+    @property
+    def has_title(self) -> bool:
+        return bool(self.title.strip())
 
     # =========================================================================
     # Convenience Properties
@@ -114,37 +153,30 @@ class PaperSections:
 
     @property
     def available_sections(self) -> list[str]:
+        """Return display names of non-empty body sections.
+
+        ``title`` is document identity, not a counted body section.
+        Prefer ``section_count`` over ``len(...)``.
         """
-        Return a list containing the names of available sections.
-        """
 
-        sections: list[str] = []
+        return [
+            _BODY_DISPLAY_NAMES[name]
+            for name in BODY_SECTION_FIELDS
+            if str(getattr(self, name)).strip()
+        ]
 
-        if self.has_abstract:
-            sections.append("Abstract")
+    def to_dict(self) -> dict[str, str]:
+        return asdict(self)
 
-        if self.has_introduction:
-            sections.append("Introduction")
-
-        if self.has_related_work:
-            sections.append("Related Work")
-
-        if self.has_methodology:
-            sections.append("Methodology")
-
-        if self.has_results:
-            sections.append("Results")
-
-        if self.has_discussion:
-            sections.append("Discussion")
-
-        if self.has_conclusion:
-            sections.append("Conclusion")
-
-        if self.has_references:
-            sections.append("References")
-
-        return sections
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PaperSections:
+        allowed = {"title", *BODY_SECTION_FIELDS}
+        unknown = set(data) - allowed
+        if unknown:
+            raise DomainValidationError(
+                f"Unknown PaperSections fields: {sorted(unknown)}.",
+            )
+        return cls(**{key: data.get(key, "") for key in allowed if key in data})
 
     @property
     def section_count(self) -> int:
