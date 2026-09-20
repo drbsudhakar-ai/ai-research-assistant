@@ -53,6 +53,23 @@ def test_analyze_accepts_request_and_returns_result() -> None:
     assert context_arg.get(PipelineKeys.FILENAME) == "paper.pdf"
 
 
+def test_analyze_with_record_id_returns_persisted_identity() -> None:
+    stored = _result()
+    context = PipelineContext(
+        data={
+            PipelineKeys.ANALYSIS_RESULT: stored,
+            PipelineKeys.HISTORY_RECORD_ID: 42,
+        }
+    )
+    pipeline_result = PipelineResult.success_result(context=context, execution_time=1.0)
+    service = AnalysisService(pipeline_factory=Mock())
+    with patch("app.services.analysis_service.PipelineRunner") as runner_cls:
+        runner_cls.return_value.run.return_value = pipeline_result
+        result, record_id = service.analyze_with_record_id(_request())
+    assert result is stored
+    assert record_id == 42
+
+
 def test_analyze_rejects_non_request() -> None:
     service = AnalysisService(pipeline_factory=Mock())
     with pytest.raises(AnalysisError, match="AnalysisRequest"):

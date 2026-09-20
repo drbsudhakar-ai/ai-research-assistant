@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import streamlit as st
 
+from app.models.analysis_request import AnalysisRequest
 from app.services.service_container import ServiceContainer
 from app.ui.components.page import render_page_header
+from app.utils.safe_filename import resolve_upload_path
 
 
 def _project_label(project) -> str:
@@ -48,6 +50,65 @@ def show_projects_page() -> None:
     metric_columns[0].metric("Papers", len(papers))
     metric_columns[1].metric("Saved synthesis", "Yes" if repository.latest_synthesis(project.id) else "No")
     metric_columns[2].metric("Status", project.status.title())
+
+    with st.container(border=True):
+        st.subheader("Batch analyze PDFs")
+        st.caption(
+            "Upload several papers together. Each successful analysis is saved to history "
+            "and attached to this project automatically."
+        )
+        uploads = st.file_uploader(
+            "Research paper PDFs",
+            type=["pdf"],
+            accept_multiple_files=True,
+            key=f"project_batch_{project.id}",
+        )
+        start_batch = st.button(
+            "Analyze and add uploaded papers",
+            type="primary",
+            disabled=not uploads,
+            use_container_width=True,
+        )
+        if start_batch:
+            existing_names = repository.linked_filenames(project.id)
+            seen_names: set[str] = set()
+            successes = 0
+            skipped = 0
+            failures: list[str] = []
+            progress = st.progress(0, text="Preparing batch analysis...")
+            for index, uploaded in enumerate(uploads, 1):
+                normalized_name = uploaded.name.strip().casefold()
+                progress.progress(
+                    int(((index - 1) / len(uploads)) * 100),
+                    text=f"Analyzing {index}/{len(uploads)}: {uploaded.name}",
+                )
+                if normalized_name in existing_names or normalized_name in seen_names:
+                    skipped += 1
+                    continue
+                seen_names.add(normalized_name)
+                try:
+                    target = resolve_upload_path(
+                        container.config.paths.uploads_dir,
+                        uploaded.name,
+                    )
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(uploaded.getvalue())
+                    _, record_id = container.analysis_service.analyze_with_record_id(
+                        AnalysisRequest(source_path=str(target), filename=uploaded.name)
+                    )
+                    repository.add_papers(project.id, [record_id])
+                    successes += 1
+                except Exception as exc:  # noqa: BLE001 - isolate individual PDFs
+                    failures.append(f"{uploaded.name}: {exc}")
+            progress.progress(100, text="Batch analysis complete.")
+            if successes:
+                st.success(f"Analyzed and added {successes} paper(s).")
+            if skipped:
+                st.info(f"Skipped {skipped} duplicate filename(s).")
+            if failures:
+                st.error("Some files could not be analyzed:\n\n" + "\n".join(f"- {item}" for item in failures))
+            if successes:
+                st.rerun()
 
     all_analyses = container.history_service.get_all_analyses()
     linked_ids = {paper.id for paper in papers}

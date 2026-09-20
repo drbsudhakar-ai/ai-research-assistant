@@ -27,6 +27,7 @@ def test_project_links_papers_and_retains_latest_synthesis(tmp_path, monkeypatch
     assert repository.add_papers(project_id, ids) == 2
     assert repository.add_papers(project_id, ids) == 0
     assert [paper.title for paper in repository.get_papers(project_id)] == ["Paper 2", "Paper 1"]
+    assert repository.linked_filenames(project_id) == {"paper-1.pdf", "paper-2.pdf"}
 
     synthesis = ResearchSynthesis(
         project_id=project_id, synthesis="Report", consolidated_gap="Gap A",

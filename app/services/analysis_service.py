@@ -62,6 +62,32 @@ class AnalysisService:
                 "analyze() requires an AnalysisRequest.",
             )
 
+        pipeline_result = self._run_pipeline(request, progress_reporter)
+        return self._outcome_from_pipeline(pipeline_result)
+
+    def analyze_with_record_id(
+        self,
+        request: AnalysisRequest,
+        *,
+        progress_reporter: ProgressReporter | None = None,
+    ) -> tuple[AnalysisResult, int]:
+        """Run analysis and return both its result and persisted history ID."""
+
+        if not isinstance(request, AnalysisRequest):
+            raise AnalysisError("analyze_with_record_id() requires an AnalysisRequest.")
+
+        pipeline_result = self._run_pipeline(request, progress_reporter)
+        result = self._outcome_from_pipeline(pipeline_result)
+        record_id = pipeline_result.context.get(PipelineKeys.HISTORY_RECORD_ID)
+        if not isinstance(record_id, int) or record_id <= 0:
+            raise AnalysisError("Analysis completed without a persisted history ID.")
+        return result, record_id
+
+    def _run_pipeline(
+        self,
+        request: AnalysisRequest,
+        progress_reporter: ProgressReporter | None,
+    ) -> PipelineResult:
         context = PipelineContext(
             data={
                 PipelineKeys.PDF_PATH: request.source_path,
@@ -91,7 +117,7 @@ class AnalysisService:
                 stage=ProgressStage.COMPLETED,
             )
 
-        return self._outcome_from_pipeline(pipeline_result)
+        return pipeline_result
 
     async def analyze_async(
         self,

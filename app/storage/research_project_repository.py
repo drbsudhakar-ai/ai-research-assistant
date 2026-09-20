@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -57,6 +57,16 @@ class ResearchProjectRepository:
             ).fetchall()
         return [HistoryRepository._row_to_record(row) for row in rows]
 
+    def linked_filenames(self, project_id: int) -> set[str]:
+        """Return normalized filenames already attached to a project."""
+        with get_connection(self._database_path) as connection:
+            rows = connection.execute(
+                "SELECT a.filename FROM analysis_history a "
+                "JOIN research_project_papers p ON p.analysis_id = a.id "
+                "WHERE p.project_id = ?", (project_id,)
+            ).fetchall()
+        return {str(row["filename"]).strip().casefold() for row in rows}
+
     def save_synthesis(self, result: ResearchSynthesis) -> int:
         with get_connection(self._database_path) as connection:
             cursor = connection.execute(
@@ -80,4 +90,3 @@ class ResearchProjectRepository:
                 "ORDER BY id DESC LIMIT 1", (project_id,)
             ).fetchone()
         return ResearchSynthesis(**dict(row)) if row else None
-
