@@ -25,6 +25,7 @@ from app.ui.pages.analyze import (
 )
 from app.ui.pages.dashboard import show_dashboard_page
 from app.ui.pages.history import show_history_page
+from app.ui.pages.projects import show_projects_page
 from app.ui.pages.report import show_report_page
 from app.ui.pages.settings import show_settings_page
 
@@ -37,6 +38,7 @@ PAGE_ROUTES = {
     PageKey.DASHBOARD: show_dashboard_page,
     PageKey.ANALYZE: show_analyze_page,
     PageKey.HISTORY: show_history_page,
+    PageKey.PROJECTS: show_projects_page,
     PageKey.REPORT: show_report_page,
     PageKey.SETTINGS: show_settings_page,
     PageKey.ABOUT: show_about_page,

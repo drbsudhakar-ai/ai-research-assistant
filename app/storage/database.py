@@ -64,6 +64,39 @@ CREATE TABLE IF NOT EXISTS analysis_history (
 );
 """
 
+CREATE_RESEARCH_PROJECT_TABLES_SQL = """
+CREATE TABLE IF NOT EXISTS research_projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    research_domain TEXT NOT NULL DEFAULT '',
+    objective TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS research_project_papers (
+    project_id INTEGER NOT NULL,
+    analysis_id INTEGER NOT NULL,
+    added_at TEXT NOT NULL,
+    PRIMARY KEY (project_id, analysis_id),
+    FOREIGN KEY (project_id) REFERENCES research_projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (analysis_id) REFERENCES analysis_history(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS research_syntheses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    synthesis TEXT NOT NULL,
+    consolidated_gap TEXT NOT NULL DEFAULT '',
+    future_scope TEXT NOT NULL DEFAULT '',
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (project_id) REFERENCES research_projects(id) ON DELETE CASCADE
+);
+"""
+
 
 def get_database_path() -> Path:
     """Return the configured SQLite path."""
@@ -92,6 +125,7 @@ def initialize_database(database_path: Path | None = None) -> None:
 
     with get_connection(database_path) as connection:
         connection.execute(CREATE_ANALYSIS_TABLE_SQL)
+        connection.executescript(CREATE_RESEARCH_PROJECT_TABLES_SQL)
         columns = {
             row["name"]
             for row in connection.execute("PRAGMA table_info(analysis_history)")

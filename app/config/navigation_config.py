@@ -27,6 +27,7 @@ class PageKey(StrEnum):
     DASHBOARD = "dashboard"
     ANALYZE = "analyze"
     HISTORY = "history"
+    PROJECTS = "projects"
     REPORT = "report"
     SETTINGS = "settings"
     ABOUT = "about"
@@ -73,6 +74,11 @@ NAVIGATION_ITEMS: list[NavigationItem] = [
         key=PageKey.HISTORY,
         label="Analysis History",
         icon="🕒",
+    ),
+    NavigationItem(
+        key=PageKey.PROJECTS,
+        label="Research Projects",
+        icon="🔬",
     ),
     NavigationItem(
         key=PageKey.REPORT,
