@@ -9,29 +9,24 @@ Version : 0.3.0
 
 import streamlit as st
 
+from app.ui.html_renderer import render_html
 
 def render_home():
     """
     Render the home page header.
     """
 
-    st.markdown(
-        """
+    render_html("""
         <div class="hero-title">
             📚 AI Research Assistant
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        """)
 
-    st.markdown(
-        """
+    render_html("""
         <div class="hero-subtitle">
             Your Intelligent Research Companion
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        """)
 
     st.write(
         """

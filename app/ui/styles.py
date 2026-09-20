@@ -10,12 +10,12 @@ Version: 0.3.0
 
 import streamlit as st
 
+from app.ui.html_renderer import render_html
 
 def load_css():
     """Load custom CSS for the application."""
 
-    st.markdown(
-        """
+    render_html("""
         <style>
 
         /* ---------------------------------------------------------
@@ -181,6 +181,4 @@ def load_css():
         }
 
         </style>
-        """,
-        unsafe_allow_html=True
-    )
+        """)

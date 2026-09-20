@@ -1,38 +1,21 @@
 """
-===========================================================
-Project      : AI Research Assistant
-File         : footer.py
-Version      : 0.3.0
-Author       : Dr. B. Sudhakar
-
-Description:
 Footer UI for the application.
-===========================================================
 """
 
 import streamlit as st
 
+from app.config.branding import get_brand_config
+from app.ui.html_renderer import render_html
+
 
 def render_footer():
-    """
-    Display application footer.
-    """
-
+    brand = get_brand_config()
     st.divider()
-
-    st.markdown(
-        """
+    render_html(f"""
 <div class="footer">
-
-<b>AI Research Assistant</b><br>
-
-Version 0.3.0<br>
-
-Developed by <b>Dr. B. Sudhakar</b><br>
-
+<b>{brand.application_name}</b><br>
+Version {brand.version}<br>
+{brand.credit}<br>
 Powered by Streamlit • Ollama • Python
-
 </div>
-""",
-        unsafe_allow_html=True,
-    )
+""")
