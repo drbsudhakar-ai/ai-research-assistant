@@ -31,6 +31,8 @@ Last Updated:
 ===============================================================================
 """
 
+
+
 # -----------------------------------------------------------------------------
 # Prompt Metadata
 # -----------------------------------------------------------------------------
@@ -474,4 +476,65 @@ Keep this section concise, well-organized, and suitable for quick reference
 during literature review and research planning.
 
 Do not introduce any information that is not supported by the paper.
+
+===============================================================================
+14. PROPOSAL INTELLIGENCE
+===============================================================================
+
+End the report with these exact Markdown subheadings:
+
+### Main Research Gap
+
+State the single most important evidence-supported research gap in one concise
+paragraph. Distinguish an author-stated gap from an analyst-inferred gap. If the
+paper is incomplete or evidence is insufficient, say so explicitly instead of
+inventing a gap.
+
+### Future Scope
+
+Give up to three concrete, feasible future research directions that directly
+address the main gap. Use a numbered list and identify what should be studied,
+how it could be evaluated, and why it matters. Do not fabricate results.
+
+### Evidence Basis
+
+Briefly state which parts of the supplied paper support the gap and future
+scope. Clearly label any inference.
 """
+
+# -----------------------------------------------------------------------------
+# Prompt Builder
+# -----------------------------------------------------------------------------
+
+__all__ = [
+    "PAPER_ANALYSIS_PROMPT",
+    "build_paper_analysis_prompt",
+]
+
+
+def build_paper_analysis_prompt(
+    paper_text: str,
+) -> str:
+    """
+    Build the complete prompt for research paper analysis.
+
+    Parameters
+    ----------
+    paper_text : str
+        Extracted text from the research paper.
+
+    Returns
+    -------
+    str
+        Complete prompt for the language model.
+    """
+
+    return f"""
+      {PAPER_ANALYSIS_PROMPT}
+
+      ===============================================================================
+      RESEARCH PAPER
+      ===============================================================================
+
+      {paper_text}
+      """

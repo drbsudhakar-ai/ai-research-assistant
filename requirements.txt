@@ -6,6 +6,11 @@ chromadb==1.0.15
 pymupdf==1.26.3
 sentence-transformers==5.0.0
 ollama==0.5.1
+httpx==0.28.1
 pandas==2.3.1
 numpy==2.3.1
 python-dotenv==1.1.1
+streamlit-autorefresh
+pytest
+ruff
+black

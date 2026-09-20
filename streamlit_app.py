@@ -1,82 +1,59 @@
 """
-===============================================================================
-Project      : AI Research Assistant
-File         : streamlit_app.py
-Version      : 0.3.0
-Author       : Dr. B. Sudhakar
-===============================================================================
+Main entry point for the AI Research Assistant application.
 """
 
+from __future__ import annotations
+
 import streamlit as st
-import time
-from app.agents.paper_analyzer import PaperAnalyzer
-from app.ui.styles import load_css
-from app.ui.sidebar import render_sidebar
-from app.ui.home import render_home
 
-from app.ui.components import (
-    render_input_section
+from app.config.branding import get_brand_config
+from app.config.loader import (
+    configure_logging,
+    ensure_runtime_directories,
+    get_application_config,
 )
+from app.core.navigation import render_page
+from app.core.session import initialize_session
+from app.storage.database import initialize_database
+from app.ui.components.sidebar import render_sidebar
+from app.ui.layout.footer import render_footer
+from app.ui.theme import ThemeManager
 
-from app.ui.footer import render_footer
 
-from app.ui.analysis import render_analysis
+def configure_page() -> None:
+    brand = get_brand_config()
+    st.set_page_config(
+        page_title=brand.page_title,
+        page_icon=brand.icon,
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
 
-# =============================================================================
-# PAGE CONFIGURATION
-# =============================================================================
 
-st.set_page_config(
-    page_title="AI Research Assistant",
-    page_icon="📚",
-    layout="wide"
-)
+def initialize_application() -> None:
+    config = get_application_config()
+    configure_logging(config)
+    ensure_runtime_directories(config)
+    initialize_database()
+    initialize_session()
+    ThemeManager.initialize()
+    ThemeManager.inject()
 
-load_css()
-render_sidebar()
-render_home()
 
-# st.divider()
+def main() -> None:
+    try:
+        initialize_application()
+        selected_page = render_sidebar()
+        render_page(selected_page)
+        render_footer()
+    except Exception:  # noqa: BLE001 - keep startup errors off the UI
+        st.error(
+            "The application could not start. "
+            "Please retry or check the application logs."
+        )
 
-paper_text = render_input_section()
 
-# =============================================================================
-# ANALYZE BUTTON
-# =============================================================================
+configure_page()
 
-st.divider()
-
-if st.button(
-    "🔍 Analyze Paper",
-    type="primary",
-    use_container_width=True
-):
-
-    if not paper_text.strip():
-        st.warning("Please upload a PDF or paste research paper text.")
-
-    else:
-        analyzer = PaperAnalyzer()
-
-        with st.spinner("🤖 AI is analyzing the research paper..."):
-
-            try:
-                start_time = time.perf_counter()
-
-                result = analyzer.analyze(paper_text)
-
-                end_time = time.perf_counter()
-
-                execution_time = end_time - start_time
-
-                render_analysis(
-                    result=result,
-                    execution_time=execution_time
-                )
-
-            except Exception as e:
-                st.error(str(e))
-# =============================================================================
-# FOOTER
-# =============================================================================
-render_footer()
+if __name__ == "__main__":
+    main()
