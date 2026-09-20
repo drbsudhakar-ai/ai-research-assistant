@@ -14,3 +14,4 @@ streamlit-autorefresh
 pytest
 ruff
 black
+reportlab==4.4.3

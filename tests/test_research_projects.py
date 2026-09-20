@@ -1,5 +1,5 @@
 from app.models.analysis_record import AnalysisRecord
-from app.models.research_project import ResearchProject, ResearchSynthesis
+from app.models.research_project import ResearchProject, ResearchProposal, ResearchSynthesis
 from app.storage.database import initialize_database
 from app.storage.history_repository import HistoryRepository
 from app.storage.research_project_repository import ResearchProjectRepository
@@ -37,3 +37,17 @@ def test_project_links_papers_and_retains_latest_synthesis(tmp_path, monkeypatch
     saved = repository.latest_synthesis(project_id)
     assert saved is not None
     assert saved.consolidated_gap == "Gap A"
+
+    proposal = ResearchProposal(
+        project_id=project_id, synthesis_id=saved.id, title="Proposal A",
+        proposal_type="Research Project", content="# Proposed Title\nProposal A",
+        provider="gemini", model="flash",
+    )
+    repository.save_proposal(proposal)
+    repository.save_proposal(ResearchProposal(
+        project_id=project_id, synthesis_id=saved.id, title="Proposal B",
+        proposal_type="Research Project", content="# Proposed Title\nProposal B",
+        provider="gemini", model="flash",
+    ))
+    proposals = repository.list_proposals(project_id)
+    assert [item.version for item in proposals] == [2, 1]

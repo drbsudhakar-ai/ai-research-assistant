@@ -95,6 +95,22 @@ CREATE TABLE IF NOT EXISTS research_syntheses (
     created_at TEXT NOT NULL,
     FOREIGN KEY (project_id) REFERENCES research_projects(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS research_proposals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    synthesis_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    proposal_type TEXT NOT NULL DEFAULT 'Research Project',
+    content TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (project_id, version),
+    FOREIGN KEY (project_id) REFERENCES research_projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (synthesis_id) REFERENCES research_syntheses(id) ON DELETE CASCADE
+);
 """
 
 

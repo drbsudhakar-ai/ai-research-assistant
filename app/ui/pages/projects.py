@@ -3,6 +3,11 @@ from __future__ import annotations
 import streamlit as st
 
 from app.models.analysis_request import AnalysisRequest
+from app.reports.proposal_renderer import (
+    render_proposal_html,
+    render_proposal_markdown,
+    render_proposal_pdf,
+)
 from app.services.service_container import ServiceContainer
 from app.ui.components.page import render_page_header
 from app.utils.safe_filename import resolve_upload_path
@@ -172,3 +177,54 @@ def show_projects_page() -> None:
             mime="text/markdown",
             use_container_width=True,
         )
+
+        st.divider()
+        st.subheader("Research proposal development")
+        proposal_type = st.selectbox(
+            "Proposal type",
+            ["Research Project", "Academic Research Proposal", "Funding Concept Note"],
+        )
+        title_guidance = st.text_input(
+            "Optional title guidance",
+            placeholder="Keywords, population, technology, or study setting to prioritize",
+        )
+        if st.button("Generate research proposal", type="primary", use_container_width=True):
+            with st.spinner("Developing an evidence-traceable research proposal..."):
+                try:
+                    service.generate_proposal(project, proposal_type, title_guidance)
+                    st.success("A new proposal version has been generated and saved.")
+                    st.rerun()
+                except Exception as exc:  # noqa: BLE001 - friendly page boundary
+                    st.error(f"Proposal generation could not be completed: {exc}")
+
+        proposals = repository.list_proposals(project.id)
+        if proposals:
+            selected_proposal = st.selectbox(
+                "Saved proposal version",
+                proposals,
+                format_func=lambda item: f"Version {item.version} · {item.title}",
+            )
+            st.markdown(selected_proposal.content)
+            export_columns = st.columns(3)
+            safe_name = f"research-proposal-v{selected_proposal.version}"
+            export_columns[0].download_button(
+                "Download Markdown",
+                render_proposal_markdown(selected_proposal),
+                file_name=f"{safe_name}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+            export_columns[1].download_button(
+                "Download HTML",
+                render_proposal_html(selected_proposal),
+                file_name=f"{safe_name}.html",
+                mime="text/html",
+                use_container_width=True,
+            )
+            export_columns[2].download_button(
+                "Download PDF",
+                render_proposal_pdf(selected_proposal),
+                file_name=f"{safe_name}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )

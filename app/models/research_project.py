@@ -29,3 +29,17 @@ class ResearchSynthesis:
     model: str = ""
     id: int | None = None
     created_at: str = field(default_factory=utc_now)
+
+
+@dataclass(slots=True)
+class ResearchProposal:
+    project_id: int
+    synthesis_id: int
+    title: str
+    proposal_type: str
+    content: str
+    provider: str
+    model: str
+    version: int = 1
+    id: int | None = None
+    created_at: str = field(default_factory=utc_now)

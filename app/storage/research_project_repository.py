@@ -3,7 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.models.analysis_record import AnalysisRecord
-from app.models.research_project import ResearchProject, ResearchSynthesis, utc_now
+from app.models.research_project import (
+    ResearchProject,
+    ResearchProposal,
+    ResearchSynthesis,
+    utc_now,
+)
 from app.storage.database import get_connection
 from app.storage.history_repository import HistoryRepository
 
@@ -90,3 +95,29 @@ class ResearchProjectRepository:
                 "ORDER BY id DESC LIMIT 1", (project_id,)
             ).fetchone()
         return ResearchSynthesis(**dict(row)) if row else None
+
+    def save_proposal(self, proposal: ResearchProposal) -> int:
+        with get_connection(self._database_path) as connection:
+            next_version = connection.execute(
+                "SELECT COALESCE(MAX(version), 0) + 1 FROM research_proposals "
+                "WHERE project_id = ?", (proposal.project_id,)
+            ).fetchone()[0]
+            cursor = connection.execute(
+                "INSERT INTO research_proposals "
+                "(project_id, synthesis_id, title, proposal_type, content, provider, "
+                "model, version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (proposal.project_id, proposal.synthesis_id, proposal.title,
+                 proposal.proposal_type, proposal.content, proposal.provider,
+                 proposal.model, next_version, proposal.created_at),
+            )
+            connection.commit()
+            proposal.version = int(next_version)
+            return int(cursor.lastrowid)
+
+    def list_proposals(self, project_id: int) -> list[ResearchProposal]:
+        with get_connection(self._database_path) as connection:
+            rows = connection.execute(
+                "SELECT * FROM research_proposals WHERE project_id = ? "
+                "ORDER BY version DESC", (project_id,)
+            ).fetchall()
+        return [ResearchProposal(**dict(row)) for row in rows]

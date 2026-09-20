@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.models.research_project import ResearchProject, ResearchSynthesis
+from app.models.research_project import ResearchProject, ResearchProposal, ResearchSynthesis
 from app.services.llm_service import LLMService
 from app.storage.research_project_repository import ResearchProjectRepository
 from app.utils.research_insights import extract_research_insights
@@ -16,6 +16,28 @@ limitations, and proposed work. Return markdown with these exact headings:
 ### Future Scope
 ## Ranked Proposal Directions
 ## Recommended Next Study
+"""
+
+PROPOSAL_SYSTEM_PROMPT = """You are an academic research proposal writer. Use only the
+provided synthesis and evidence list. Do not invent references, findings, datasets,
+funding details, or institutional approvals. Clearly label assumptions. Produce polished
+markdown with these exact sections:
+# Proposed Title
+## Abstract
+## Background and Rationale
+## Problem Statement
+## Main Research Gap
+## Aim
+## Research Objectives
+## Research Questions
+## Proposed Methodology
+## Expected Outcomes
+## Innovation and Significance
+## Scope and Limitations
+## Ethical and Data Considerations
+## Work Plan and Timeline
+## Evidence Traceability
+## References to Source Papers
 """
 
 
@@ -59,3 +81,53 @@ class ResearchProjectService:
         )
         result.id = self.repository.save_synthesis(result)
         return result
+
+    def generate_proposal(
+        self,
+        project: ResearchProject,
+        proposal_type: str = "Research Project",
+        title_guidance: str = "",
+    ) -> ResearchProposal:
+        if project.id is None:
+            raise ValueError("Project must be saved before proposal generation.")
+        synthesis = self.repository.latest_synthesis(project.id)
+        if synthesis is None or synthesis.id is None:
+            raise ValueError("Generate a comparative synthesis before creating a proposal.")
+        papers = self.repository.get_papers(project.id)
+        evidence = "\n".join(
+            f"- Source {index}: {paper.title} ({paper.filename})"
+            for index, paper in enumerate(papers, 1)
+        )
+        prompt = (
+            f"Proposal type: {proposal_type}\nProject: {project.name}\n"
+            f"Domain: {project.research_domain}\nObjective: {project.objective}\n"
+            f"Title guidance: {title_guidance or 'Develop the strongest evidence-led title.'}\n\n"
+            f"COMPARATIVE SYNTHESIS\n{synthesis.synthesis}\n\n"
+            f"SOURCE PAPERS\n{evidence}"
+        )
+        response = self.llm.generate(
+            system_prompt=PROPOSAL_SYSTEM_PROMPT,
+            user_prompt=prompt,
+        )
+        title = self._extract_proposal_title(response.content, project.name)
+        proposal = ResearchProposal(
+            project_id=project.id,
+            synthesis_id=synthesis.id,
+            title=title,
+            proposal_type=proposal_type,
+            content=response.content,
+            provider=response.provider,
+            model=response.model,
+        )
+        proposal.id = self.repository.save_proposal(proposal)
+        return proposal
+
+    @staticmethod
+    def _extract_proposal_title(content: str, fallback: str) -> str:
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
+        for index, line in enumerate(lines):
+            if line.casefold() in {"# proposed title", "proposed title"} and index + 1 < len(lines):
+                return lines[index + 1].lstrip("#* ").strip() or fallback
+            if line.startswith("# ") and line.casefold() != "# proposed title":
+                return line[2:].strip() or fallback
+        return fallback
