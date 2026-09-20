@@ -21,7 +21,9 @@ limitations, and proposed work. Return markdown with these exact headings:
 PROPOSAL_SYSTEM_PROMPT = """You are an academic research proposal writer. Use only the
 provided synthesis and evidence list. Do not invent references, findings, datasets,
 funding details, or institutional approvals. Clearly label assumptions. Produce polished
-markdown with these exact sections:
+markdown. This is a researcher-owned working draft: do not claim it is human-authored,
+do not optimize for AI-detector evasion, and do not reproduce source wording without
+quotation and attribution. Use these exact sections:
 # Proposed Title
 ## Abstract
 ## Background and Rationale
@@ -38,6 +40,25 @@ markdown with these exact sections:
 ## Work Plan and Timeline
 ## Evidence Traceability
 ## References to Source Papers
+"""
+
+POSTDOCTORAL_REQUIREMENTS = """For a Post-Doctoral Fellowship Proposal, also include:
+## Applicant Research Background
+## Connection with Doctoral Research
+## Host Institution and Mentor Fit
+## Fellowship Deliverables
+## Fellowship Duration and Milestones
+## Facilities and Resources Required
+## Career Development Contribution
+Use supplied applicant/host details only. Mark missing details as 'To be completed by applicant'.
+"""
+
+PROJECT_REQUIREMENTS = """For a Research Project Proposal, also include:
+## Project Team and Institutional Capacity
+## Project Deliverables
+## Budget Heads and Justification
+## Implementation and Dissemination Plan
+Do not invent team, institution, or budget figures. Mark missing details for researcher completion.
 """
 
 
@@ -87,6 +108,7 @@ class ResearchProjectService:
         project: ResearchProject,
         proposal_type: str = "Research Project",
         title_guidance: str = "",
+        applicant_context: str = "",
     ) -> ResearchProposal:
         if project.id is None:
             raise ValueError("Project must be saved before proposal generation.")
@@ -102,11 +124,18 @@ class ResearchProjectService:
             f"Proposal type: {proposal_type}\nProject: {project.name}\n"
             f"Domain: {project.research_domain}\nObjective: {project.objective}\n"
             f"Title guidance: {title_guidance or 'Develop the strongest evidence-led title.'}\n\n"
+            f"APPLICANT / HOST / SCHEME CONTEXT\n"
+            f"{applicant_context or 'Not supplied; mark applicant-specific fields for completion.'}\n\n"
             f"COMPARATIVE SYNTHESIS\n{synthesis.synthesis}\n\n"
             f"SOURCE PAPERS\n{evidence}"
         )
+        type_requirements = (
+            POSTDOCTORAL_REQUIREMENTS
+            if proposal_type == "Post-Doctoral Fellowship Proposal"
+            else PROJECT_REQUIREMENTS
+        )
         response = self.llm.generate(
-            system_prompt=PROPOSAL_SYSTEM_PROMPT,
+            system_prompt=f"{PROPOSAL_SYSTEM_PROMPT}\n{type_requirements}",
             user_prompt=prompt,
         )
         title = self._extract_proposal_title(response.content, project.name)

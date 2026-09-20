@@ -182,16 +182,56 @@ def show_projects_page() -> None:
         st.subheader("Research proposal development")
         proposal_type = st.selectbox(
             "Proposal type",
-            ["Research Project", "Academic Research Proposal", "Funding Concept Note"],
+            ["Post-Doctoral Fellowship Proposal", "Research Project Proposal"],
         )
         title_guidance = st.text_input(
             "Optional title guidance",
             placeholder="Keywords, population, technology, or study setting to prioritize",
         )
+        if proposal_type == "Post-Doctoral Fellowship Proposal":
+            with st.expander("Fellowship applicant and host details", expanded=True):
+                doctoral_area = st.text_input("Ph.D. research area")
+                continuity = st.text_area(
+                    "How the proposed work extends your Ph.D. research",
+                    placeholder="Describe continuity, the new contribution, and why post-doctoral work is required.",
+                )
+                host = st.text_input("Proposed host institution")
+                mentor = st.text_input("Proposed mentor or host scientist")
+                duration = st.text_input("Expected fellowship duration", placeholder="e.g. 24 months")
+                scheme = st.text_area(
+                    "Fellowship scheme guidance",
+                    placeholder="Paste eligibility, mandatory headings, word limits, or evaluation criteria.",
+                )
+                applicant_context = (
+                    f"Ph.D. research area: {doctoral_area or 'Not supplied'}\n"
+                    f"Extension beyond Ph.D.: {continuity or 'Not supplied'}\n"
+                    f"Host institution: {host or 'Not supplied'}\n"
+                    f"Mentor/host scientist: {mentor or 'Not supplied'}\n"
+                    f"Duration: {duration or 'Not supplied'}\n"
+                    f"Scheme guidance: {scheme or 'Not supplied'}"
+                )
+        else:
+            with st.expander("Project scheme and institutional details"):
+                institution = st.text_input("Applicant institution")
+                team = st.text_area("Proposed project team and expertise")
+                scheme = st.text_area(
+                    "Funding scheme guidance",
+                    placeholder="Paste mandatory headings, duration, budget rules, or evaluation criteria.",
+                )
+                applicant_context = (
+                    f"Applicant institution: {institution or 'Not supplied'}\n"
+                    f"Project team: {team or 'Not supplied'}\n"
+                    f"Scheme guidance: {scheme or 'Not supplied'}"
+                )
         if st.button("Generate research proposal", type="primary", use_container_width=True):
             with st.spinner("Developing an evidence-traceable research proposal..."):
                 try:
-                    service.generate_proposal(project, proposal_type, title_guidance)
+                    service.generate_proposal(
+                        project,
+                        proposal_type,
+                        title_guidance,
+                        applicant_context,
+                    )
                     st.success("A new proposal version has been generated and saved.")
                     st.rerun()
                 except Exception as exc:  # noqa: BLE001 - friendly page boundary
